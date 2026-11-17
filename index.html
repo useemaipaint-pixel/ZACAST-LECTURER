@@ -25,7 +25,7 @@ window.ZACAST_CONFIG = {
 
 <style>
 :root{--g:#004D2B;--g2:#003B22;--y:#F5C518;--ok:#159447;--bad:#E53945;--bg:#F4F7F5;--ink:#0f172a;--mut:#64748b;--line:#e2e8f0;
- --fb:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--fd:"Sora","Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+ --navh:calc(66px + env(safe-area-inset-bottom,0px));--fb:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--fd:"Sora","Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{overflow-x:hidden}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fb);font-size:14px;line-height:1.45;overflow-x:hidden;-webkit-font-smoothing:antialiased}
@@ -44,7 +44,7 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
 .ib{width:36px;height:36px;border-radius:50%;background:#e8eeea;color:#334155;display:flex;align-items:center;justify-content:center}
 .avatar{width:42px;height:42px;border-radius:50%;background:var(--g);color:#fff;font-family:var(--fd);font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #cfe5d8;overflow:hidden;flex:none}
 .avatar img{width:100%;height:100%;object-fit:cover;display:block}
-.main{flex:1;padding:6px 16px 110px}
+.main{flex:1;padding:6px 16px calc(var(--navh) + 40px)}
 .wl{font-size:20px;margin:0 0 2px;font-weight:800}
 .muted{color:var(--mut);font-size:12px;margin:0 0 14px}
 .welcome{display:flex;align-items:center;gap:12px;margin:10px 0 14px}
@@ -90,7 +90,7 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
 .btn.gray{background:#f1f5f9;color:#334155}
 .btn.sm{width:auto;padding:8px 14px;font-size:12px;border-radius:12px;display:inline-flex}
 .btns{display:flex;gap:10px}.btns .btn{flex:1}
-.fab{position:fixed;z-index:30;bottom:calc(84px + env(safe-area-inset-bottom,0px));right:max(16px,calc(50% - 240px + 16px));background:var(--g);color:#fff;font-weight:700;padding:13px 18px;border-radius:99px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 20px rgba(0,77,43,.35)}
+.fab{position:fixed;z-index:30;bottom:calc(var(--navh) + 14px);right:max(16px,calc(50% - 240px + 16px));background:var(--g);color:#fff;font-weight:700;padding:13px 18px;border-radius:99px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 20px rgba(0,77,43,.35)}
 .fld{margin-bottom:14px}.fld label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:#334155}
 .fld input,.fld select,.fld textarea{width:100%;background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:12px;font-size:14px;outline:0}
 .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,77,43,.12)}
@@ -100,11 +100,11 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;strok
 .tabs{display:flex;gap:4px;background:#e8eeea;border-radius:14px;padding:4px;margin-bottom:14px}
 .tabs button{flex:1;padding:9px 4px;border-radius:11px;font-size:12px;font-weight:700;color:#475569}
 .tabs button.on{background:var(--g);color:#fff}
-nav.nav{position:sticky;bottom:0;margin-top:auto;background:var(--g2);display:flex;justify-content:space-around;padding:10px 6px calc(10px + env(safe-area-inset-bottom,0px));z-index:40;box-shadow:0 -6px 20px rgba(0,0,0,.15)}
+nav.nav{position:fixed;left:50%;transform:translateX(-50%);width:100%;max-width:480px;bottom:0;height:var(--navh);background:var(--g2);display:flex;justify-content:space-around;align-items:center;padding:0 6px env(safe-area-inset-bottom,0px);z-index:60;box-shadow:0 -6px 20px rgba(0,0,0,.15)}
 nav.nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:rgba(209,250,229,.7);font-size:10px;font-weight:500;position:relative;padding-top:4px}
 nav.nav button.on{color:var(--y);font-weight:700}
-nav.nav button.on:before{content:"";position:absolute;top:-6px;width:6px;height:6px;border-radius:50%;background:var(--y);box-shadow:0 0 8px var(--y)}
-.bar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+nav.nav button.on:before{content:"";position:absolute;top:-8px;width:6px;height:6px;border-radius:50%;background:var(--y);box-shadow:0 0 8px var(--y)}
+.bar{position:fixed;left:0;right:0;bottom:var(--navh);z-index:50;background:#fff;border-top:1px solid var(--line);padding:10px 16px}
 .bar>div{max-width:480px;margin:0 auto}
 .prog{display:flex;height:7px;border-radius:99px;background:#e2e8f0;overflow:hidden}
 .prog i{display:block;height:100%;transition:width .4s}.prog .pp{background:var(--ok)}.prog .pa{background:var(--bad)}
@@ -455,8 +455,10 @@ function mainHead(sub,right){
  return '<header class="hd"><img class="hd-logo" src="'+LOGO+'" alt="'+BRAND+'"><div class="hd-t"><b>'+BRAND+'</b><small>'+esc(sub)+'</small></div><div class="hd-r">'+r+'</div></header>';
 }
 const subHead=(title,right)=>'<header class="hd sub"><button class="ib" data-act="back" aria-label="Back">'+ic('back')+'</button><h1>'+esc(title)+'</h1><div class="hd-r">'+(right||'')+'</div></header>';
+const NAVMAP={'student-form':'students','student-profile':'students',manage:'students',export:'students','session-form':'attendance',session:'attendance',absent:'attendance'};
 function shell(head,inner,tabName,extra){
- app.innerHTML='<div class="phone">'+head+'<main class="main">'+inner+'</main>'+(tabName?navHTML(tabName):'')+(extra||'')+'</div>';
+ const t=tabName||NAVMAP[route.n]||'settings';
+ app.innerHTML='<div class="phone">'+head+'<main class="main">'+inner+(route.n==='session'?'<div style="height:70px"></div>':'')+'</main>'+navHTML(t)+(extra||'')+'</div>';
 }
 const deptBar=()=>'<button class="dbar" data-act="pick-dept">'+ic('building',20)+'<span class="rw"><small>Department</small><b>'+esc(dept?dept.name:'No department')+'</b></span>'+ic('down')+'</button>';
 const statusChip=s=>'<span class="chip '+(s.status==='Completed'?'done':'inprog')+'">'+esc(s.status)+'</span>';
@@ -572,7 +574,7 @@ async function switchDept(id){
  const d=depts.find(x=>x.id===id);if(!d)return false;
  const ok=await act('Loading '+d.name+'…',()=>loadDeptData(d.id).then(()=>true));
  if(!ok)return false;
- dept=d;sset('zacast_dept',d.id);view.rep=null;view.abs=null;view.sf='all';
+ dept=d;sset('zacast_dept',d.id);view.rep=null;view.abs=null;view.sf='all';if(view.el){view.el.course='all';view.el.sem='all'}
  return true;
 }
 S.departments=async function(){
@@ -927,13 +929,30 @@ function repSummary(){
 }
 const repStudents=()=>({file:'ZACAST_'+deptCode()+'_Students',title:'Student List',meta:[deptMeta(),'Total students: '+db.students.length],headers:['S/N','Name','Admission No.'],rows:sortedStudents().map(x=>[x.serial,x.name,x.admNo])});
 let curRep=null;
+function eligData(){
+ const e=view.el=view.el||{th:parseFloat(sget('zacast_th'))||75,sem:'all',course:'all',list:'elig'};
+ let ss=db.sessions.filter(x=>x.status==='Completed');
+ if(e.sem!=='all')ss=ss.filter(x=>x.semester===e.sem);
+ if(e.course!=='all')ss=ss.filter(x=>(x.course||'')===e.course);
+ const rows=sortedStudents().map(x=>{let p=0;ss.forEach(y=>{if((db.rec[y.id]||{})[x.id]==='present')p++});
+  const rate=ss.length?round1(p/ss.length*100):0;return {s:x,p:p,t:ss.length,rate:rate,ok:ss.length>0&&rate>=e.th}});
+ return {e:e,ss:ss,rows:rows,yes:rows.filter(r=>r.ok),no:rows.filter(r=>!r.ok)};
+}
+function repElig(d){
+ const e=d.e,list=e.list==='elig'?d.yes:e.list==='not'?d.no:d.rows;
+ const lbl=e.list==='elig'?'Eligible students (may write)':e.list==='not'?'NOT eligible students (below minimum)':'All students';
+ return {file:'ZACAST_'+deptCode()+'_Exam_'+(e.list==='elig'?'Eligible':e.list==='not'?'Not_Eligible':'All'),title:'Test / Exam Eligibility List',
+  meta:[deptMeta(),'Minimum attendance: '+e.th+'%','Semester: '+(e.sem==='all'?'All':e.sem)+' | Course: '+(e.course==='all'?'All':e.course),'Based on '+d.ss.length+' completed attendance(s)','Showing: '+lbl+' - '+list.length+' student(s)'],
+  headers:['S/N','Name','Admission No.','Present','Total','Rate %','Status'],
+  rows:list.map(r=>[r.s.serial,r.s.name,r.s.admNo,r.p,r.t,r.rate,r.ok?'Eligible':'Not eligible'])};
+}
 const exportBtns=()=>'<div class="btns" style="margin-top:6px"><button class="btn out" data-act="export" data-k="pdf">'+ic('file',16)+'Export to PDF</button><button class="btn out" data-act="export" data-k="csv">'+ic('dl',16)+'Export to Excel</button></div>';
 S.reports=function(){
  const r=view.rep=view.rep||{tab:'session',sid:'',stid:''};
  const ss=sortedSessions(),stu=sortedStudents();
  if(!r.sid||!getSession(r.sid))r.sid=ss[0]?ss[0].id:'';
  if(!r.stid||!getStudent(r.stid))r.stid=stu[0]?stu[0].id:'';
- const tabs='<div class="tabs">'+[['session','By Attendance'],['student','By Student'],['summary','Summary']].map(t=>'<button class="'+(r.tab===t[0]?'on':'')+'" data-act="rtab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
+ const tabs='<div class="tabs">'+[['session','Attendance'],['student','Student'],['summary','Summary'],['elig','Exam List']].map(t=>'<button class="'+(r.tab===t[0]?'on':'')+'" data-act="rtab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
  let body='';curRep=null;
  if(r.tab==='session'){
   if(!ss.length)body='<div class="empty">No attendance taken yet.</div>';
@@ -956,12 +975,32 @@ S.reports=function(){
    '<div class="metrics"><div class="mt p"><span>● Present</span><b>'+t.present+'</b></div><div class="mt a"><span>● Absent</span><b>'+t.absent+'</b></div></div>'+
    '<div class="card donutw"><div class="donut" style="background:'+deg2+'"><div class="dn"><b>'+(t.total?t.rate+'%':'—')+'</b><small>ATTENDANCE</small></div></div></div><div class="sp"></div>'+exportBtns();
   }
+ }else if(r.tab==='elig'){
+  const d=eligData(),e=d.e;
+  const courses=[];db.sessions.forEach(x=>{if(x.status==='Completed'&&x.course&&courses.indexOf(x.course)<0)courses.push(x.course)});
+  if(e.course!=='all'&&courses.indexOf(e.course)<0)e.course='all';
+  const list=e.list==='elig'?d.yes:e.list==='not'?d.no:d.rows;
+  curRep=repElig(d);
+  const ch=(v,t,c)=>'<button class="'+(e.list===v?'on':'')+'" data-act="elist" data-v="'+v+'">'+t+' ('+c+')</button>';
+  body='<div class="card"><b>Who can write the test / exam?</b><p class="muted" style="margin:4px 0 12px">Students whose attendance is below the minimum are not allowed.</p>'+
+   '<div class="two"><div class="fld"><label>Minimum attendance (%)</label><input id="el-th" type="number" inputmode="decimal" min="0" max="100" value="'+e.th+'"></div>'+
+   '<div class="fld"><label>Semester</label><select id="el-sem"><option value="all">All</option>'+SEMS.map(x=>'<option'+(e.sem===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div></div>'+
+   '<div class="fld" style="margin-bottom:0"><label>Course</label><select id="el-course"><option value="all">All courses</option>'+courses.map(x=>'<option'+(e.course===x?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></div></div><div class="sp"></div><div class="sp"></div>'+
+   (d.ss.length?'<p class="muted" style="margin-top:12px">Based on <b>'+d.ss.length+'</b> completed attendance(s). Absent or unmarked counts as not present.</p>':'<div class="empty" style="margin-top:12px">No completed attendance yet. Finish at least one attendance first.</div>')+
+   '<div class="metrics"><div class="mt p"><span>● Eligible</span><b>'+d.yes.length+'</b></div><div class="mt a"><span>● Not eligible</span><b>'+d.no.length+'</b></div></div>'+
+   '<div class="chips">'+ch('elig','Eligible',d.yes.length)+ch('not','Not eligible',d.no.length)+ch('all','All',d.rows.length)+'</div>'+
+   (list.length?exportBtns()+'<div class="sp"></div><div class="card" style="margin-top:12px">'+list.map(x=>'<div class="mini"><span class="sn">'+x.s.serial+'</span><span class="rw"><b>'+esc(x.s.name)+'</b><small>Adm No: '+esc(x.s.admNo)+' • '+x.p+'/'+x.t+' present</small></span><span class="chip '+(x.ok?'pr':'ab')+'">'+x.rate+'%</span></div>').join('')+'</div>':'<div class="empty">No students in this list.</div>');
  }else{
   curRep=repSummary();
   body=(stu.length?'<div class="card">'+stu.map(x=>{const t=studentStats(x.id);return '<div class="mini"><span class="sn">'+x.serial+'</span><span class="rw"><b>'+esc(x.name)+'</b><small>Adm No: '+esc(x.admNo)+' • P: '+t.present+' • A: '+t.absent+'</small></span><span class="chip '+(t.total?(t.rate>=75?'pr':'ab'):'un')+'">'+(t.total?t.rate+'%':'-')+'</span></div>'}).join('')+'</div><div class="sp"></div><div class="sp"></div>'+exportBtns():'<div class="empty">No students yet.</div>');
  }
  shell(mainHead('Reports'),deptBar()+tabs+body,'reports');
  const sel=$('#rsel');if(sel)sel.addEventListener('change',function(){if(r.tab==='session')r.sid=this.value;else r.stid=this.value;S.reports()});
+ if(r.tab==='elig'){const e=view.el;
+  $('#el-th').addEventListener('change',function(){let v=parseFloat(this.value);if(!(v>=0))v=75;if(v>100)v=100;e.th=v;sset('zacast_th',String(v));S.reports()});
+  $('#el-sem').addEventListener('change',function(){e.sem=this.value;S.reports()});
+  $('#el-course').addEventListener('change',function(){e.course=this.value;S.reports()});
+ }
 };
 
 /* ===== Settings ===== */
@@ -1085,6 +1124,7 @@ const ACT={
  'all-present':()=>allPresent(),
  finish:()=>finishSession(),
  rtab:t=>{view.rep.tab=t.dataset.v;S.reports()},
+ 'elist':t=>{view.el.list=t.dataset.v;S.reports()},
  'export':t=>{if(curRep)doExport(t.dataset.k,curRep)},
  'toggle-sound':()=>{sset('zacast_sound',soundOn()?'0':'1');S.settings();beep(660)},
  'rm-photo':()=>{pendingAvatar='';if(view.repaintPhoto)view.repaintPhoto();toast('Photo will be removed. Tap Save Changes.')},
