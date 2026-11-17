@@ -323,22 +323,25 @@ const rpc=(fn,args)=>api('POST','rpc/'+fn,args||{});
 /* ===== App state ===== */
 let admin={username:'',fullName:'',avatar:''};
 let depts=[],dept=null;
-let db={students:[],sessions:[],rec:{}};   // rec[sessionId][studentId] = 'present' | 'absent'
+let db={students:[],sessions:[],rec:{},courses:[]};   // rec[sessionId][studentId] = 'present' | 'absent'
 const soundOn=()=>sget('zacast_sound')!=='0';
 
 const mapStu=r=>({id:r.id,serial:r.serial,name:r.name,admNo:r.adm_no});
-const mapSes=r=>({id:r.id,course:r.course||'',semester:r.semester,date:r.date,time:String(r.time||'').slice(0,5),day:r.day,status:r.status,createdAt:Date.parse(r.created_at)||0});
+const mapSes=r=>({id:r.id,course:r.course||'',semester:r.semester,date:r.date,time:String(r.time||'').slice(0,5),day:r.day,status:r.status,courseId:r.course_id||null,createdAt:Date.parse(r.created_at)||0});
+const mapCou=r=>({id:r.id,code:r.code||'',title:r.title||''});
+let coursesOK=true;
 function setAdmin(a){admin={username:a.username||'',fullName:a.full_name||'',avatar:a.avatar||''}}
 
 async function loadDepts(){depts=await api('GET','departments?select=*&order=created_at.asc')||[]}
 async function loadDeptData(id){
- const [st,se,re]=await Promise.all([
+ const [st,se,re,co]=await Promise.all([
   selectAll('students?select=id,serial,name,adm_no&department_id=eq.'+id+'&order=serial.asc'),
   selectAll('attendance_sessions?select=*&department_id=eq.'+id+'&order=date.desc,time.desc'),
-  selectAll('attendance_records?select=session_id,student_id,status&department_id=eq.'+id+'&order=id.asc')
+  selectAll('attendance_records?select=session_id,student_id,status&department_id=eq.'+id+'&order=id.asc'),
+  selectAll('courses?select=*&department_id=eq.'+id+'&order=code.asc').then(x=>{coursesOK=true;return x}).catch(()=>{coursesOK=false;return []})
  ]);
  const rec={};re.forEach(r=>{(rec[r.session_id]||(rec[r.session_id]={}))[r.student_id]=r.status});
- db={students:st.map(mapStu),sessions:se.map(mapSes),rec:rec};
+ db={students:st.map(mapStu),sessions:se.map(mapSes),rec:rec,courses:co.map(mapCou)};
 }
 async function reloadRecords(){
  if(!dept)return;
@@ -353,6 +356,19 @@ const getStudent=id=>db.students.find(s=>s.id===id);
 const getSession=id=>db.sessions.find(s=>s.id===id);
 const nextSerial=()=>db.students.reduce((m,s)=>Math.max(m,s.serial),0)+1;
 const sessionTitle=s=>s.course?s.course:'Attendance';
+/* --- courses (each department has its own courses; attendance is always for one course) --- */
+const courseLabel=c=>c?(c.title?c.code+' - '+c.title:c.code):'';
+const sortCourseList=l=>l.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true,sensitivity:'base'}));
+const sortedCourses=()=>sortCourseList(db.courses||[]);
+const getCourse=id=>(db.courses||[]).find(c=>c.id===id);
+function curCourse(){const c=view.course||'all';if(c!=='all'&&c!=='none'&&!getCourse(c))view.course='all';return view.course||'all'}
+const inScope=s=>{const c=curCourse();return c==='all'||(c==='none'?!s.courseId:s.courseId===c)};
+const scoped=()=>db.sessions.filter(inScope);
+const sortedScoped=()=>sortedSessions().filter(inScope);
+const cleanCode=c=>String(c).replace(/[^A-Za-z0-9]+/g,'_');
+const courseCode=s=>{const c=s&&s.courseId?getCourse(s.courseId):null;return c?cleanCode(c.code):''};
+const courseTag=()=>{const c=curCourse(),o=(c!=='all'&&c!=='none')?getCourse(c):null;return o?'_'+cleanCode(o.code):''};
+const courseMeta=()=>{const c=curCourse();return c==='all'?[]:['Course: '+(c==='none'?'Not linked to a course':courseLabel(getCourse(c)))]};
 const sessionMap=sid=>db.rec[sid]||{};
 function sessionStats(sid){
  const m=sessionMap(sid);let p=0,a=0;
@@ -360,8 +376,8 @@ function sessionStats(sid){
  const total=db.students.length,rec=p+a;
  return {present:p,absent:a,total:total,recorded:rec,unrecorded:Math.max(total-rec,0),rate:rec?round1(p/rec*100):0};
 }
-function studentStats(id){
- let p=0,a=0;db.sessions.forEach(s=>{const v=(db.rec[s.id]||{})[id];if(v==='present')p++;else if(v==='absent')a++});
+function studentStats(id,list){
+ let p=0,a=0;(list||db.sessions).forEach(s=>{const v=(db.rec[s.id]||{})[id];if(v==='present')p++;else if(v==='absent')a++});
  const t=p+a;return {present:p,absent:a,total:t,rate:t?round1(p/t*100):0};
 }
 function matches(s,q){
@@ -425,7 +441,7 @@ function confirmBox(o){
 const app=$('#app');
 let route={n:'splash',p:{}},stack=[],histOK=true;
 const view={};
-const NEEDS={dashboard:1,students:1,attendance:1,reports:1,absent:1,'student-form':1,'student-profile':1,'session-form':1,session:1,manage:1,export:1};
+const NEEDS={dashboard:1,students:1,attendance:1,reports:1,absent:1,'student-form':1,'student-profile':1,'session-form':1,session:1,manage:1,export:1,courses:1};
 function nav(n,p){
  stack.push(route);route={n:n,p:p||{}};
  if(histOK){try{history.pushState({d:stack.length},'')}catch(e){histOK=false}}
@@ -462,6 +478,57 @@ function shell(head,inner,tabName,extra){
 }
 const deptBar=()=>'<button class="dbar" data-act="pick-dept">'+ic('building',20)+'<span class="rw"><small>Department</small><b>'+esc(dept?dept.name:'No department')+'</b></span>'+ic('down')+'</button>';
 const statusChip=s=>'<span class="chip '+(s.status==='Completed'?'done':'inprog')+'">'+esc(s.status)+'</span>';
+const courseBar=()=>{const c=curCourse(),lbl=c==='all'?'All courses':c==='none'?'Not linked to a course':courseLabel(getCourse(c));
+ return '<button class="dbar" data-act="pick-course">'+ic('book',20)+'<span class="rw"><small>Course</small><b>'+esc(lbl)+'</b></span>'+ic('down')+'</button>'};
+function pickCourse(){
+ const cur=curCourse(),list=sortedCourses();
+ const cnt=id=>db.sessions.filter(s=>id==='all'?true:id==='none'?!s.courseId:s.courseId===id).length;
+ const opt=(id,t,sub)=>'<button class="dopt'+(cur===id?' on':'')+'" data-act="set-course" data-id="'+id+'"><span class="ico">'+ic('book')+'</span><span class="rw"><b>'+esc(t)+'</b><small>'+sub+'</small></span>'+(cur===id?ic('check'):'')+'</button>';
+ modal('<h3>Select Course</h3><p>Courses of <b>'+esc(dept.name)+'</b>. Attendance, absent list and reports will show only the course you choose.</p>'+
+  opt('all','All courses',cnt('all')+' attendance')+
+  list.map(c=>opt(c.id,courseLabel(c),cnt(c.id)+' attendance')).join('')+
+  (db.sessions.some(s=>!s.courseId)?opt('none','Not linked to a course',cnt('none')+' attendance (older)'):'')+
+  '<div class="sp"></div><button class="btn out" data-act="to-courses">Manage Courses</button><div class="sp"></div><button class="btn gray" data-act="m-cancel" style="margin-top:8px">Close</button>');
+}
+function courseOptsHTML(list,sel,s){
+ let o='';
+ if(s&&!s.courseId)o+='<option value="">'+(s.course?'Not linked: '+esc(s.course):'No course')+'</option>';
+ else if(!s)o+='<option value="">Select course…</option>';
+ return o+list.map(c=>'<option value="'+c.id+'"'+(c.id===sel?' selected':'')+'>'+esc(courseLabel(c))+'</option>').join('');
+}
+function courseHintHTML(list){
+ if(!coursesOK)return '<div class="warn"><b>Courses are not set up yet</b>Run <span style="font-weight:700">supabase_update_courses.sql</span> in the Supabase SQL Editor, then reload this page.</div>';
+ if(!list.length)return '<div class="warn"><b>This department has no course yet</b>Add its courses first, then you can take attendance.<button type="button" class="btn sm" data-act="go-courses">+ Add Course</button></div>';
+ return '<div class="h">You must choose the course this attendance is for.</div>';
+}
+function courseFieldHTML(s){
+ const list=sortedCourses(),c=curCourse(),sel=s?s.courseId:((c!=='all'&&c!=='none')?c:'');
+ return '<div class="fld"><label>Course</label><select id="s-course">'+courseOptsHTML(list,sel,s)+'</select><div id="s-chint">'+
+  (s?'<div class="h">Changing the course moves this attendance to that course.</div>':courseHintHTML(list))+'</div></div>';
+}
+function courseStats(id){
+ const ss=db.sessions.filter(s=>s.courseId===id),done=ss.filter(s=>s.status==='Completed');
+ let sum=0,n=0;done.forEach(s=>{const t=sessionStats(s.id);if(t.recorded){sum+=t.rate;n++}});
+ return {count:ss.length,done:done.length,avg:n?round1(sum/n):null};
+}
+function courseSection(){
+ if(!coursesOK)return courseHintHTML([]);
+ const cs=sortedCourses();
+ const h='<div class="sec"><h3>Courses</h3><button data-act="nav" data-n="courses">'+(cs.length?'Manage':'Add')+'</button></div>';
+ if(!cs.length)return h+'<div class="empty">No course in this department yet.<br><button class="btn sm" data-act="nav" data-n="courses">'+ic('plus',16)+'Add Course</button></div>';
+ return h+'<div class="list">'+cs.slice(0,5).map(c=>{const t=courseStats(c.id);return li('open-course','book',esc(courseLabel(c)),t.count+' attendance'+(t.avg==null?'':' • '+t.avg+'% average'),'','',' data-id="'+c.id+'"')}).join('')+'</div>';
+}
+function byCourseHTML(id){
+ const g={},keys=[];
+ db.sessions.forEach(x=>{const v=(db.rec[x.id]||{})[id];if(!v)return;
+  const k=x.courseId||(x.course?'t:'+x.course:'');if(!k)return;
+  if(!g[k]){g[k]={label:(x.courseId?courseLabel(getCourse(x.courseId)):'')||x.course,p:0,t:0};keys.push(k)}
+  g[k].t++;if(v==='present')g[k].p++});
+ if(!keys.length)return '';
+ keys.sort((a,b)=>g[a].label.localeCompare(g[b].label,undefined,{numeric:true,sensitivity:'base'}));
+ return '<div class="sec" style="margin-top:20px"><h3>By Course</h3></div><div class="card">'+keys.map(k=>{const o=g[k],r=round1(o.p/o.t*100);
+  return '<div class="mini"><span class="ico">'+ic('book')+'</span><span class="rw"><b>'+esc(o.label)+'</b><small>'+o.p+' present of '+o.t+'</small></span><span class="chip '+(r>=75?'pr':'ab')+'">'+r+'%</span></div>'}).join('')+'</div>';
+}
 function sessionCard(s){
  const st=sessionStats(s.id);
  return '<button class="row" data-act="session" data-id="'+s.id+'"><span class="ico">'+ic('cal')+'</span><span class="rw"><b>'+esc(sessionTitle(s))+'</b><small>'+esc(s.semester)+' • '+esc(s.day)+'</small><small>'+esc(fmtDate(s.date))+' • '+esc(fmtTime(s.time))+' • '+st.recorded+'/'+st.total+' recorded</small></span>'+statusChip(s)+ic('chev')+'</button>';
@@ -518,7 +585,7 @@ async function startApp(){
    const saved=sget('zacast_dept');
    dept=depts.find(d=>d.id===saved)||depts[0];
    await loadDeptData(dept.id);
-  }else{dept=null;db={students:[],sessions:[],rec:{}}}
+  }else{dept=null;db={students:[],sessions:[],rec:{},courses:[]}}
   return true;
  });
  if(!ok){ // could not load: stay on login if token invalid, otherwise show retry
@@ -554,6 +621,7 @@ S.dashboard=function(){
  '<div class="sc c-blue"><div class="t">'+ic('check')+'Present</div><div><div class="v">'+st.present+'</div><div class="s">'+sub+'</div></div></div>'+
  '<div class="sc c-red"><div class="t">'+ic('x')+'Absent</div><div><div class="v">'+st.absent+'</div><div class="s">'+sub+'</div></div></div>'+
  '<div class="sc c-yel"><div class="t">'+ic('chart')+'Attendance Rate</div><div><div class="v">'+st.rate+'%</div><div class="s">'+sub+'</div></div></div></div>'+
+ courseSection()+
  '<div class="sec"><h3>Recent Attendance</h3><button data-act="tab" data-n="attendance">View All</button></div>';
  if(!n)html+='<div class="empty">No students in this department yet.<br><button class="btn sm" data-act="nav" data-n="student-form">'+ic('plus',16)+'Add Student</button></div>';
  else if(!ss.length)html+='<div class="empty">No attendance taken yet.<br><button class="btn sm" data-act="nav" data-n="session-form">'+ic('plus',16)+'New Attendance</button></div>';
@@ -574,7 +642,7 @@ async function switchDept(id){
  const d=depts.find(x=>x.id===id);if(!d)return false;
  const ok=await act('Loading '+d.name+'…',()=>loadDeptData(d.id).then(()=>true));
  if(!ok)return false;
- dept=d;sset('zacast_dept',d.id);view.rep=null;view.abs=null;view.sf='all';if(view.el){view.el.course='all';view.el.sem='all'}
+ dept=d;sset('zacast_dept',d.id);view.rep=null;view.abs=null;view.sf='all';view.course='all';if(view.el){view.el.course='all';view.el.sem='all'}
  return true;
 }
 S.departments=async function(){
@@ -627,6 +695,66 @@ function delDept(id){
   depts=depts.filter(x=>x.id!==id);
   if(dept&&dept.id===id){await switchDept(depts[0].id)}
   toast('Department deleted');S.departments();
+ }});
+}
+
+/* ===== Courses ===== */
+S.courses=function(){
+ if(!coursesOK){shell(subHead('Courses'),deptBar()+courseHintHTML([]),'settings');return}
+ const list=sortedCourses();
+ const html=deptBar()+
+ '<div class="card" style="margin-bottom:14px"><b>Add a course</b><p class="muted" style="margin:4px 0 12px">Courses of <b>'+esc(dept.name)+'</b>. Attendance is always taken for one course, and every course keeps its own attendance records.</p>'+
+ '<div class="two"><div class="fld"><label>Course code</label><input id="c-code" autocomplete="off" placeholder="e.g. CSC 201"></div>'+
+ '<div class="fld"><label>Title (optional)</label><input id="c-title" autocomplete="off" placeholder="e.g. Data Structures"></div></div>'+
+ '<button class="btn" data-act="add-course">'+ic('plus',18)+'Add Course</button></div>'+
+ '<div class="sec"><h3>Courses of '+esc(dept.name)+' ('+list.length+')</h3></div>'+
+ (list.length?list.map(c=>{const t=courseStats(c.id);
+  return '<div class="srow"><span class="ico">'+ic('book')+'</span><div class="rw"><b>'+esc(courseLabel(c))+'</b><small>'+t.count+' attendance'+(t.avg==null?'':' • '+t.avg+'% average')+'</small></div>'+
+   '<button class="ib" data-act="new-att-course" data-id="'+c.id+'" style="background:#e6f4ec;color:var(--g)" aria-label="Take attendance">'+ic('clip',17)+'</button>'+
+   '<button class="ib" data-act="edit-course" data-id="'+c.id+'" aria-label="Edit">'+ic('edit',17)+'</button>'+
+   '<button class="ib" data-act="del-course" data-id="'+c.id+'" style="background:#fee2e2;color:var(--bad)" aria-label="Delete">'+ic('trash',17)+'</button></div>';
+ }).join(''):'<div class="empty">No courses yet. Add your first course above.</div>');
+ shell(subHead('Courses'),html,'settings');
+};
+async function addCourse(){
+ if(!coursesOK)return toast('Courses are not set up yet. Run supabase_update_courses.sql in Supabase.',true);
+ const code=cleanName($('#c-code').value).toUpperCase(),title=cleanName($('#c-title').value);
+ if(!code)return toast('Course code is required',true);
+ if((db.courses||[]).some(c=>c.code.toLowerCase()===code.toLowerCase()))return toast('This course already exists in '+dept.name,true);
+ const r=await act('Adding course…',()=>api('POST','courses',[{department_id:dept.id,code:code,title:title||null}],{Prefer:'return=representation'}));
+ if(!r)return;
+ db.courses.push(mapCou(r[0]));beep(784);toast(code+' added');S.courses();
+}
+function editCourse(id){
+ const c=getCourse(id);if(!c)return;
+ pendingOk=async()=>{
+  const code=cleanName($('#e-ccode').value).toUpperCase(),title=cleanName($('#e-ctitle').value);
+  if(!code)return toast('Course code is required',true);
+  if(db.courses.some(x=>x.id!==id&&x.code.toLowerCase()===code.toLowerCase()))return toast('Another course has this code',true);
+  const label=courseLabel({code:code,title:title});
+  const ok=await act('Saving…',async()=>{
+   const r=await api('PATCH','courses?id=eq.'+id,{code:code,title:title||null},{Prefer:'return=representation'});
+   if(!r||!r.length)return false;
+   await api('PATCH','attendance_sessions?course_id=eq.'+id,{course:label},{Prefer:'return=minimal'});
+   Object.assign(c,mapCou(r[0]));return true;
+  });
+  if(!ok)return;
+  db.sessions.forEach(s=>{if(s.courseId===id)s.course=label});
+  closeModal();toast('Course updated');S.courses();
+ };
+ modal('<h3>Edit Course</h3><p>Change the code or title.</p><input id="e-ccode" value="'+esc(c.code)+'" autocomplete="off"><input id="e-ctitle" value="'+esc(c.title||'')+'" placeholder="Title (optional)" autocomplete="off">'+
+  '<div class="btns"><button class="btn gray" data-act="m-cancel">Cancel</button><button class="btn" data-act="m-ok">Save</button></div>');
+}
+function delCourse(id){
+ const c=getCourse(id);if(!c)return;
+ const n=db.sessions.filter(s=>s.courseId===id).length;
+ confirmBox({title:'Delete '+c.code+'?',html:'The course <b>'+esc(courseLabel(c))+'</b> will be deleted.'+(n?' Its <b>'+n+'</b> attendance record(s) will <b>not</b> be deleted, but they will no longer belong to a course.':''),ok:'Delete Course',danger:true,onOk:async()=>{
+  closeModal();
+  const r=await act('Deleting…',()=>api('DELETE','courses?id=eq.'+id,undefined,{Prefer:'return=minimal'}));
+  if(r===undefined)return;
+  db.courses=db.courses.filter(x=>x.id!==id);db.sessions.forEach(s=>{if(s.courseId===id)s.courseId=null});
+  if(view.course===id)view.course='all';
+  toast('Course deleted');S.courses();
  }});
 }
 
@@ -711,6 +839,7 @@ S['student-profile']=function(p){
  const html='<div class="card prof"><div class="ring">'+s.serial+'</div><h2>'+esc(s.name)+'</h2><p>Admission No: <b>'+esc(s.admNo)+'</b></p><p>Serial No: <b>'+s.serial+'</b></p><p>'+esc(dept.name)+'</p></div>'+
  '<div class="three"><div class="mt p"><b>'+st.present+'</b><span>Present</span></div><div class="mt a"><b>'+st.absent+'</b><span>Absent</span></div><div class="mt" style="background:#FEF3C7;border-color:#fde68a;color:#92400e"><b>'+st.rate+'%</b><span>Rate</span></div></div>'+
  '<div class="btns"><button class="btn out" data-act="nav" data-n="student-form" data-id="'+s.id+'">'+ic('edit',16)+'Edit</button><button class="btn redo" data-act="del-student" data-id="'+s.id+'">'+ic('trash',16)+'Delete</button></div>'+
+ byCourseHTML(s.id)+
  '<div class="sec" style="margin-top:20px"><h3>Attendance History</h3></div><div class="card">'+
  (hist.length?hist.map(x=>'<div class="mini"><span class="ico">'+ic('cal')+'</span><span class="rw"><b>'+esc(sessionTitle(x.s))+'</b><small>'+esc(x.s.semester)+' • '+esc(x.s.day)+'</small><small>'+esc(fmtDate(x.s.date))+' • '+esc(fmtTime(x.s.time))+'</small></span><span class="chip '+(x.r==='present'?'pr':'ab')+'">'+(x.r==='present'?'Present':'Absent')+'</span></div>').join(''):'<div class="muted" style="text-align:center;margin:10px 0">No attendance recorded for this student yet.</div>')+'</div>';
  shell(subHead('Student Profile'),html,'students');
@@ -729,11 +858,11 @@ function deleteStudent(id,after){
 /* ===== Attendance sessions ===== */
 S.attendance=function(){
  view.sf=view.sf||'all';
- const ss=sortedSessions(),ip=ss.filter(s=>s.status!=='Completed').length,cp=ss.length-ip;
+ const ss=sortedScoped(),ip=ss.filter(s=>s.status!=='Completed').length,cp=ss.length-ip;
  const l=ss.filter(s=>view.sf==='all'||(view.sf==='prog'?s.status!=='Completed':s.status==='Completed'));
  const chip=(v,t,c)=>'<button class="'+(view.sf===v?'on':'')+'" data-act="sfilter" data-v="'+v+'">'+t+' ('+c+')</button>';
  shell(mainHead('Attendance Sessions','<button class="chip ab" data-act="nav" data-n="absent" style="padding:7px 12px;font-size:11.5px;display:flex;gap:6px;align-items:center">'+ic('userx',15)+'Absent List</button>'),
-  deptBar()+'<div class="chips">'+chip('all','All',ss.length)+chip('prog','In Progress',ip)+chip('done','Completed',cp)+'</div>'+
+  deptBar()+courseBar()+'<div class="chips">'+chip('all','All',ss.length)+chip('prog','In Progress',ip)+chip('done','Completed',cp)+'</div>'+
   (l.length?l.map(sessionCard).join(''):'<div class="empty">No attendance found.<br>Create a new attendance to begin.</div>'),
   'attendance','<button class="fab" data-act="nav" data-n="session-form">'+ic('plus',18)+'New Attendance</button>');
 };
@@ -742,7 +871,7 @@ S['session-form']=function(p){
  const d=s?s.date:todayStr(),t=s?s.time:nowTime(),dy=s?s.day:dayOf(d);
  const html=(s?'<p class="muted">Department: <b>'+esc(dept.name)+'</b></p>':
   '<div class="fld"><label>Department</label><select id="s-dept">'+depts.map(x=>'<option value="'+x.id+'"'+(x.id===dept.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select><div class="h">Choose the department you are taking attendance for.</div></div>')+
- '<div class="fld"><label>Course / Subject (optional)</label><input id="s-course" placeholder="e.g. CSC 201" autocomplete="off" value="'+esc(s?s.course:'')+'"></div>'+
+ courseFieldHTML(s)+
  '<div class="fld"><label>Semester</label><select id="s-sem">'+SEMS.map(x=>'<option'+((s?s.semester:SEMS[0])===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'+
  '<div class="two"><div class="fld"><label>Date</label><input id="s-date" type="date" value="'+d+'"></div>'+
  '<div class="fld"><label>Time</label><input id="s-time" type="time" value="'+t+'"></div></div>'+
@@ -751,12 +880,24 @@ S['session-form']=function(p){
  (s?'<div class="sp"></div><button class="btn redo" data-act="del-session" data-id="'+s.id+'" style="margin-top:12px">'+ic('trash',16)+'Delete This Attendance</button>':'<p class="muted" style="text-align:center;margin-top:14px">After creating, you can mark every student Present or Absent.</p>');
  shell(subHead(s?'Edit Attendance':'New Attendance'),html,null);
  $('#s-date').addEventListener('change',()=>{const v=$('#s-date').value;if(v)$('#s-day').value=dayOf(v)});
+ const sd=$('#s-dept');
+ if(sd)sd.addEventListener('change',async function(){
+  const did=this.value;let list=[];
+  if(did===dept.id)list=sortedCourses();
+  else{try{list=sortCourseList((await api('GET','courses?select=*&department_id=eq.'+did+'&order=code.asc')||[]).map(mapCou))}catch(e){list=[]}}
+  if(!$('#s-course')||$('#s-dept').value!==did)return;
+  $('#s-course').innerHTML=courseOptsHTML(list,'',null);$('#s-chint').innerHTML=courseHintHTML(list);
+ });
 };
 async function saveSession(id){
  const date=$('#s-date').value,time=$('#s-time').value;
  if(!date)return toast('Select the date',true);
  if(!time)return toast('Select the time',true);
- const o={course:cleanName($('#s-course').value),semester:$('#s-sem').value,date:date,time:time,day:$('#s-day').value};
+ const cid=$('#s-course').value;
+ if(!id&&!coursesOK)return toast('Courses are not set up yet. Run supabase_update_courses.sql in Supabase.',true);
+ if(!id&&!cid)return toast('Select the course first',true);
+ const o={semester:$('#s-sem').value,date:date,time:time,day:$('#s-day').value};
+ if(id&&cid){const cc0=getCourse(cid);if(cc0){o.course=courseLabel(cc0);o.course_id=cid}}
  if(id){
   const r=await act('Saving…',()=>api('PATCH','attendance_sessions?id=eq.'+id,o,{Prefer:'return=representation'}));
   if(!r||!r.length)return;
@@ -764,6 +905,8 @@ async function saveSession(id){
  }
  const did=$('#s-dept')?$('#s-dept').value:dept.id;
  if(did!==dept.id){if(!await switchDept(did))return}
+ const cc=getCourse(cid);if(!cc)return toast('Select the course first',true);
+ o.course=courseLabel(cc);o.course_id=cid;
  const r=await act('Creating attendance…',()=>api('POST','attendance_sessions',[Object.assign({department_id:dept.id},o)],{Prefer:'return=representation'}));
  if(!r)return;
  const s=mapSes(r[0]);db.sessions.push(s);toast('Attendance created for '+dept.name);beep(784);
@@ -877,17 +1020,17 @@ function deleteSession(id){
 
 /* ===== Absent list ===== */
 S.absent=function(){
- const ss=sortedSessions();if(!view.abs||(view.abs!=='all'&&!getSession(view.abs)))view.abs=ss[0]?ss[0].id:'all';
+ const ss=sortedScoped();if(!view.abs||(view.abs!=='all'&&!ss.some(x=>x.id===view.abs)))view.abs=ss[0]?ss[0].id:'all';
  const opts='<option value="all"'+(view.abs==='all'?' selected':'')+'>All attendance (total absences)</option>'+ss.map(s=>'<option value="'+s.id+'"'+(view.abs===s.id?' selected':'')+'>'+esc(sessionTitle(s)+' - '+fmtDate(s.date)+' '+fmtTime(s.time))+'</option>').join('');
  let rows;
  if(view.abs==='all'){
-  const cnt={};Object.keys(db.rec).forEach(sid=>{const m=db.rec[sid];Object.keys(m).forEach(k=>{if(m[k]==='absent')cnt[k]=(cnt[k]||0)+1})});
+  const cnt={},ids={};ss.forEach(x=>{ids[x.id]=1});Object.keys(db.rec).filter(sid=>ids[sid]).forEach(sid=>{const m=db.rec[sid];Object.keys(m).forEach(k=>{if(m[k]==='absent')cnt[k]=(cnt[k]||0)+1})});
   rows=sortedStudents().filter(x=>cnt[x.id]).sort((a,b)=>cnt[b.id]-cnt[a.id]||a.serial-b.serial).map(x=>stuRow(x,'<span class="chip ab">'+cnt[x.id]+' absent</span>'));
  }else{
   const m=sessionMap(view.abs);
   rows=sortedStudents().filter(x=>m[x.id]==='absent').map(x=>stuRow(x,'<span class="chip ab">Absent</span>'));
  }
- shell(subHead('Absent Students'),'<p class="muted">Department: <b>'+esc(dept.name)+'</b></p><div class="fld"><select id="abs">'+opts+'</select></div>'+(rows.length?'<p class="muted">'+rows.length+' student(s)</p>'+rows.join(''):'<div class="empty">No absences recorded for this selection.</div>'),'attendance');
+ shell(subHead('Absent Students'),'<p class="muted">Department: <b>'+esc(dept.name)+'</b></p>'+courseBar()+'<div class="fld"><select id="abs">'+opts+'</select></div>'+(rows.length?'<p class="muted">'+rows.length+' student(s)</p>'+rows.join(''):'<div class="empty">No absences recorded for this selection.</div>'),'attendance');
  $('#abs').addEventListener('change',function(){view.abs=this.value;S.absent()});
 };
 
@@ -913,19 +1056,19 @@ const deptMeta=()=>'Department: '+dept.name;
 const sessionMeta=s=>[deptMeta(),'Course/Subject: '+(s.course||'-'),s.semester+' | '+s.day+' | '+fmtDate(s.date)+' | '+fmtTime(s.time)];
 function repSession(s){
  const m=sessionMap(s.id);
- return {file:'ZACAST_'+deptCode()+'_Attendance',title:'Attendance Report',meta:sessionMeta(s),headers:['S/N','Name','Admission No.','Status'],
+ return {file:'ZACAST_'+deptCode()+(courseCode(s)?'_'+courseCode(s):'')+'_Attendance',title:'Attendance Report',meta:sessionMeta(s),headers:['S/N','Name','Admission No.','Status'],
   rows:sortedStudents().map(x=>[x.serial,x.name,x.admNo,statusText(m[x.id])])};
 }
 function repStudent(x){
- const st=studentStats(x.id);
- const rows=sortedSessions().map(s=>[fmtDate(s.date),s.day,fmtTime(s.time),s.semester,s.course||'-',statusText(sessionMap(s.id)[x.id])]);
- return {file:'ZACAST_'+deptCode()+'_Student_'+x.serial,title:'Student Attendance Report',meta:[deptMeta(),'Name: '+x.name,'Admission No.: '+x.admNo+' | Serial No.: '+x.serial,'Present: '+st.present+' | Absent: '+st.absent+' | Rate: '+st.rate+'%'],
+ const st=studentStats(x.id,scoped());
+ const rows=sortedScoped().map(s=>[fmtDate(s.date),s.day,fmtTime(s.time),s.semester,s.course||'-',statusText(sessionMap(s.id)[x.id])]);
+ return {file:'ZACAST_'+deptCode()+courseTag()+'_Student_'+x.serial,title:'Student Attendance Report',meta:[deptMeta(),...courseMeta(),'Name: '+x.name,'Admission No.: '+x.admNo+' | Serial No.: '+x.serial,'Present: '+st.present+' | Absent: '+st.absent+' | Rate: '+st.rate+'%'],
   headers:['Date','Day','Time','Semester','Course','Status'],rows:rows};
 }
 function repSummary(){
- return {file:'ZACAST_'+deptCode()+'_Summary',title:'Attendance Summary (All Sessions)',meta:[deptMeta(),'Total attendance sessions: '+db.sessions.length,'Total students: '+db.students.length],
+ return {file:'ZACAST_'+deptCode()+courseTag()+'_Summary',title:'Attendance Summary (All Sessions)',meta:[deptMeta(),...courseMeta(),'Total attendance sessions: '+scoped().length,'Total students: '+db.students.length],
   headers:['S/N','Name','Admission No.','Present','Absent','Rate %'],
-  rows:sortedStudents().map(x=>{const t=studentStats(x.id);return [x.serial,x.name,x.admNo,t.present,t.absent,t.rate]})};
+  rows:sortedStudents().map(x=>{const t=studentStats(x.id,scoped());return [x.serial,x.name,x.admNo,t.present,t.absent,t.rate]})};
 }
 const repStudents=()=>({file:'ZACAST_'+deptCode()+'_Students',title:'Student List',meta:[deptMeta(),'Total students: '+db.students.length],headers:['S/N','Name','Admission No.'],rows:sortedStudents().map(x=>[x.serial,x.name,x.admNo])});
 let curRep=null;
@@ -949,13 +1092,13 @@ function repElig(d){
 const exportBtns=()=>'<div class="btns" style="margin-top:6px"><button class="btn out" data-act="export" data-k="pdf">'+ic('file',16)+'Export to PDF</button><button class="btn out" data-act="export" data-k="csv">'+ic('dl',16)+'Export to Excel</button></div>';
 S.reports=function(){
  const r=view.rep=view.rep||{tab:'session',sid:'',stid:''};
- const ss=sortedSessions(),stu=sortedStudents();
- if(!r.sid||!getSession(r.sid))r.sid=ss[0]?ss[0].id:'';
+ const ss=sortedScoped(),stu=sortedStudents();
+ if(!r.sid||!ss.some(x=>x.id===r.sid))r.sid=ss[0]?ss[0].id:'';
  if(!r.stid||!getStudent(r.stid))r.stid=stu[0]?stu[0].id:'';
  const tabs='<div class="tabs">'+[['session','Attendance'],['student','Student'],['summary','Summary'],['elig','Exam List']].map(t=>'<button class="'+(r.tab===t[0]?'on':'')+'" data-act="rtab" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>';
  let body='';curRep=null;
  if(r.tab==='session'){
-  if(!ss.length)body='<div class="empty">No attendance taken yet.</div>';
+  if(!ss.length)body='<div class="empty">'+(curCourse()==='all'?'No attendance taken yet.':'No attendance for this course yet.')+'</div>';
   else{
    const s=getSession(r.sid),st=sessionStats(s.id),m=sessionMap(s.id);curRep=repSession(s);
    const deg=st.recorded?'conic-gradient(var(--ok) 0 '+st.rate+'%,var(--bad) '+st.rate+'% 100%)':'#e2e8f0';
@@ -969,7 +1112,7 @@ S.reports=function(){
  }else if(r.tab==='student'){
   if(!stu.length)body='<div class="empty">No students yet.</div>';
   else{
-   const x=getStudent(r.stid),t=studentStats(x.id);curRep=repStudent(x);
+   const x=getStudent(r.stid),t=studentStats(x.id,ss);curRep=repStudent(x);
    const deg2=t.total?'conic-gradient(var(--ok) 0 '+t.rate+'%,var(--bad) '+t.rate+'% 100%)':'#e2e8f0';
    body='<div class="fld"><label>Select Student</label><select id="rsel">'+stu.map(y=>'<option value="'+y.id+'"'+(y.id===r.stid?' selected':'')+'>'+y.serial+'. '+esc(y.name)+' ('+esc(y.admNo)+')</option>').join('')+'</select></div>'+
    '<div class="metrics"><div class="mt p"><span>● Present</span><b>'+t.present+'</b></div><div class="mt a"><span>● Absent</span><b>'+t.absent+'</b></div></div>'+
@@ -992,9 +1135,9 @@ S.reports=function(){
    (list.length?exportBtns()+'<div class="sp"></div><div class="card" style="margin-top:12px">'+list.map(x=>'<div class="mini"><span class="sn">'+x.s.serial+'</span><span class="rw"><b>'+esc(x.s.name)+'</b><small>Adm No: '+esc(x.s.admNo)+' • '+x.p+'/'+x.t+' present</small></span><span class="chip '+(x.ok?'pr':'ab')+'">'+x.rate+'%</span></div>').join('')+'</div>':'<div class="empty">No students in this list.</div>');
  }else{
   curRep=repSummary();
-  body=(stu.length?'<div class="card">'+stu.map(x=>{const t=studentStats(x.id);return '<div class="mini"><span class="sn">'+x.serial+'</span><span class="rw"><b>'+esc(x.name)+'</b><small>Adm No: '+esc(x.admNo)+' • P: '+t.present+' • A: '+t.absent+'</small></span><span class="chip '+(t.total?(t.rate>=75?'pr':'ab'):'un')+'">'+(t.total?t.rate+'%':'-')+'</span></div>'}).join('')+'</div><div class="sp"></div><div class="sp"></div>'+exportBtns():'<div class="empty">No students yet.</div>');
+  body=(stu.length?'<div class="card">'+stu.map(x=>{const t=studentStats(x.id,ss);return '<div class="mini"><span class="sn">'+x.serial+'</span><span class="rw"><b>'+esc(x.name)+'</b><small>Adm No: '+esc(x.admNo)+' • P: '+t.present+' • A: '+t.absent+'</small></span><span class="chip '+(t.total?(t.rate>=75?'pr':'ab'):'un')+'">'+(t.total?t.rate+'%':'-')+'</span></div>'}).join('')+'</div><div class="sp"></div><div class="sp"></div>'+exportBtns():'<div class="empty">No students yet.</div>');
  }
- shell(mainHead('Reports'),deptBar()+tabs+body,'reports');
+ shell(mainHead('Reports'),deptBar()+(r.tab==='elig'?'':courseBar())+tabs+body,'reports');
  const sel=$('#rsel');if(sel)sel.addEventListener('change',function(){if(r.tab==='session')r.sid=this.value;else r.stid=this.value;S.reports()});
  if(r.tab==='elig'){const e=view.el;
   $('#el-th').addEventListener('change',function(){let v=parseFloat(this.value);if(!(v>=0))v=75;if(v>100)v=100;e.th=v;sset('zacast_th',String(v));S.reports()});
@@ -1009,6 +1152,7 @@ S.settings=function(){
  const html='<div class="list">'+
  '<button class="li" data-act="nav" data-n="profile">'+avatarHTML()+'<span class="rw"><b>Admin Profile</b><small>'+esc(admin.fullName||admin.username)+' • photo &amp; name</small></span>'+ic('chev')+'</button>'+
  li('nav','building','Departments',dept?esc(dept.name)+' • add, edit or switch':'Add a department','','',' data-n="departments"')+
+ li('nav','book','Courses',dept?esc(dept.name)+' • add, edit or delete courses':'Add a department first','','',' data-n="courses"')+
  li('nav','key','Change Password','Update security credentials','','',' data-n="password"')+
  li('toggle-sound','vol','Sound','Audio feedback on attendance & actions','','<span class="sw'+(soundOn()?' on':'')+'"></span>')+
  li('nav','users','Manage Students','View, search and delete students','','',' data-n="manage"')+
@@ -1100,13 +1244,23 @@ const ACT={
  'pick-dept':()=>pickDept(),
  'set-dept':async t=>{
   closeModal();
-  if(dept&&dept.id===t.dataset.id){if(route.n==='departments')toast(dept.name+' is already active');return}
+  if(dept&&dept.id===t.dataset.id){if(route.n==='departments'||route.n==='courses')toast(dept.name+' is already active');return}
   if(await switchDept(t.dataset.id)){
    if(route.n==='departments'){toast('Now working in '+dept.name);S.departments()}
+   else if(route.n==='courses'){toast('Now working in '+dept.name);S.courses()}
    else{const keep={dashboard:1,students:1,attendance:1,reports:1}[route.n]?route.n:'dashboard';tab(keep);toast('Now working in '+dept.name)}
   }
  },
  'to-depts':()=>{closeModal();nav('departments')},
+ 'pick-course':()=>pickCourse(),
+ 'set-course':t=>{view.course=t.dataset.id;render()},
+ 'to-courses':()=>{closeModal();nav('courses')},
+ 'go-courses':async()=>{const sd=$('#s-dept');if(sd&&sd.value!==dept.id&&!await switchDept(sd.value))return;nav('courses')},
+ 'add-course':()=>addCourse(),
+ 'edit-course':t=>editCourse(t.dataset.id),
+ 'del-course':t=>delCourse(t.dataset.id),
+ 'open-course':t=>{view.course=t.dataset.id;tab('attendance')},
+ 'new-att-course':t=>{view.course=t.dataset.id;nav('session-form')},
  'add-dept':()=>addDept(),
  'edit-dept':t=>editDept(t.dataset.id),
  'del-dept':t=>delDept(t.dataset.id),
@@ -1149,9 +1303,9 @@ const ACT={
  'do-backup':async()=>{
   const r=await act('Preparing backup…',()=>Promise.all([
    selectAll('departments?select=*&order=created_at.asc'),selectAll('students?select=*&order=department_id.asc,serial.asc'),
-   selectAll('attendance_sessions?select=*&order=created_at.asc'),selectAll('attendance_records?select=*&order=id.asc')]));
+   selectAll('attendance_sessions?select=*&order=created_at.asc'),selectAll('attendance_records?select=*&order=id.asc'),selectAll('courses?select=*&order=created_at.asc').catch(()=>[])]));
   if(!r)return;
-  const data={app:'ZACAST',version:3,exportedAt:new Date().toISOString(),departments:r[0],students:r[1],sessions:r[2],records:r[3]};
+  const data={app:'ZACAST',version:3,exportedAt:new Date().toISOString(),departments:r[0],students:r[1],sessions:r[2],records:r[3],courses:r[4]};
   downloadBlob('ZACAST_Backup_'+todayStr()+'.json',new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
   toast('Backup file downloaded');
  }
