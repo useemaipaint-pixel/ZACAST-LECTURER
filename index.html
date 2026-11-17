@@ -191,6 +191,9 @@ nav.nav button.on:before{content:"";position:absolute;top:-8px;width:6px;height:
 .toast i{flex:none;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;font-weight:800}
 .lnk{color:var(--g);font-weight:700;font-size:12px}
 .sp{height:6px}
+/* keyboard open (touch phones): free the space and leave room to scroll the field into view */
+body.kb nav.nav,body.kb .fab,body.kb .bar{display:none!important}
+body.kb .main{padding-bottom:45vh}
 #print-area{display:none}
 @media print{
  body.printing #app,body.printing #toasts,body.printing #modal-root,body.printing #busy{display:none!important}
@@ -1314,6 +1317,32 @@ document.addEventListener('click',e=>{
  const t=e.target.closest('[data-act]');if(!t)return;
  const f=ACT[t.dataset.act];if(f){e.preventDefault();f(t,e)}
 });
+
+/* ===== Keyboard fix: keep the field you are typing in visible ===== */
+(function(){
+ const vv=window.visualViewport;
+ const touch=()=>{try{return window.matchMedia('(pointer:coarse)').matches}catch(e){return false}};
+ const isField=el=>!!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)&&!/^(checkbox|radio|file|button|submit|hidden)$/.test(el.type||'');
+ function reveal(){
+  const el=document.activeElement;if(!isField(el)||!el.scrollIntoView)return;
+  try{el.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){try{el.scrollIntoView()}catch(e2){}}
+ }
+ function fitModal(){
+  const ov=document.querySelector('#modal-root .ov');if(!ov||!vv)return;
+  const mb=ov.firstChild,open=document.body.classList.contains('kb');
+  if(open){ov.style.top=vv.offsetTop+'px';ov.style.bottom='auto';ov.style.height=vv.height+'px';if(mb&&mb.style)mb.style.maxHeight=Math.max(vv.height-24,160)+'px'}
+  else{ov.style.top='';ov.style.bottom='';ov.style.height='';if(mb&&mb.style)mb.style.maxHeight=''}
+ }
+ document.addEventListener('focusin',e=>{
+  if(!isField(e.target))return;
+  if(touch())document.body.classList.add('kb');
+  fitModal();[60,320,650].forEach(ms=>setTimeout(reveal,ms));
+ });
+ document.addEventListener('focusout',()=>{
+  setTimeout(()=>{if(!isField(document.activeElement)){document.body.classList.remove('kb');fitModal()}},200);
+ });
+ if(vv){vv.addEventListener('resize',()=>{fitModal();reveal()});vv.addEventListener('scroll',fitModal)}
+})();
 
 window.__zacast={get state(){return {dept:dept,depts:depts,db:db,admin:admin}}};
 boot();
