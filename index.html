@@ -528,7 +528,7 @@ function avatarHTML(extra){
  return '<span class="avatar"'+(extra?' style="'+extra+'"':'')+'>'+(admin.avatar?'<img src="'+esc(admin.avatar)+'" alt="">':esc(ini))+'</span>';
 }
 function navHTML(cur){
- const items=[['dashboard','Dashboard','grid'],['students','Students','users'],['attendance','Attendance','clip'],['ai','AI','spark'],['reports','Reports','chart'],['settings','Settings','gear']];
+ const items=[['dashboard','Dashboard','grid'],['students','Students','users'],['attendance','Attendance','clip'],['reports','Reports','chart'],['settings','Settings','gear']];
  return '<nav class="nav">'+items.map(i=>'<button data-act="tab" data-n="'+i[0]+'" aria-label="'+i[1]+'" class="'+(cur===i[0]?'on':'')+'">'+ic(i[2])+'<span>'+i[1]+'</span></button>').join('')+'</nav>';
 }
 function mainHead(sub,right){
