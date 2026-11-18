@@ -1,4 +1,4 @@
-ZACAST ATTENDANCE MANAGEMENT SYSTEM  (v3.3 - online)
+ZACAST ATTENDANCE MANAGEMENT SYSTEM  (v3.4 - online)
 Zamfara College of Arts, Science and Technology, Gusau
 
 NEW INSTALLATION
@@ -53,3 +53,34 @@ UPDATE v3.3
   and course averages are separate for each semester.
 - AI Mode: trash button (top right) or type "clear chat" to delete the conversation.
 - Keyboard no longer hides what you type.
+
+UPDATE v3.4  (left menu, Promote ND I -> ND II + Archive, stronger AI Mode)
+ALREADY USING ZACAST?
+1. Supabase > SQL Editor > New query > paste supabase_update_promote.sql > RUN (once).
+   It does NOT delete or change anything now. Do NOT run supabase_setup.sql again.
+2. Replace your old index.html with the new one. Nothing was removed from the app.
+NEW INSTALLATION: run supabase_setup.sql, supabase_update_courses.sql,
+   supabase_update_levels.sql, supabase_update_semester.sql, then supabase_update_promote.sql.
+
+- LEFT MENU: tap the green menu button (top left) or swipe from the left edge.
+  Close it by tapping the dark area, the X, swiping left, or choosing a page.
+  It has every page: Dashboard, Students, Attendance, AI Mode, Reports, Courses,
+  Departments, Manage/Export Students, Promote ND I -> ND II, Archive, Settings, About, Logout.
+  The bottom bar is still there.
+- PROMOTE ND I -> ND II (menu / Settings / AI Mode): at the end of the year, one tap moves
+  the whole ND I class to ND II. For each department it does everything together
+  (if anything fails, nothing changes):
+    1. the finishing ND II students are saved in the ARCHIVE (never lost)
+    2. every ND I student becomes an ND II student
+    3. ND I is left empty for the new intake
+  The attendance of both levels is saved inside the archive, then cleared.
+  Courses are kept. You can promote ALL departments or one department.
+- ARCHIVE: Settings > Archive. Open a class to see/search its students with their
+  attendance %, export to PDF or Excel, or delete it.
+- AI MODE (stronger): finds students in ALL departments (by name, admission no. or serial
+  no., even with small spelling mistakes), adds one or many students (also step by step:
+  just type "Add student"), lists with "more", deletes one student, promotes, opens archive.
+  Examples: "Find abdulahi" | "Add student Aminu Sani, 36201" |
+  "Add Aminu Sani 36201 to Computer Science ND I" |
+  "Add students: Aminu Sani, 36201; Bala Musa, 36202" | "Promote ND I to ND II" |
+  Hausa: "nemo Aminu", "kara dalibi Aminu Sani, 36201", "mayar da ND I zuwa ND II".

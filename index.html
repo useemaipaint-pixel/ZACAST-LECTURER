@@ -219,6 +219,42 @@ body.kb .aibar{bottom:var(--kb,0px)}
  #print-area th,#print-area td{border:1px solid #999;padding:5px 6px}
  #print-area tr{page-break-inside:avoid}
 }
+
+/* ---- v3.4: left menu (drawer), promote, archive ---- */
+.hd-menu{background:var(--g);color:#fff;width:40px;height:40px;border-radius:12px;flex:none}
+.hd-menu:active{transform:scale(.94)}
+#drawer-root{position:fixed;inset:0;z-index:90;visibility:hidden;pointer-events:none;transition:visibility 0s linear .3s}
+#drawer-root.open{visibility:visible;pointer-events:auto;transition-delay:0s}
+.drw-ov{position:absolute;inset:0;background:rgba(15,23,42,.55);opacity:0;transition:opacity .3s ease;-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px)}
+#drawer-root.open .drw-ov{opacity:1}
+.drw-wrap{position:absolute;top:0;bottom:0;left:50%;width:100%;max-width:480px;transform:translateX(-50%);overflow:hidden;pointer-events:none}
+.drw{position:absolute;top:0;bottom:0;left:0;width:min(310px,86%);background:#fff;display:flex;flex-direction:column;transform:translateX(-104%);transition:transform .3s cubic-bezier(.22,.8,.3,1);box-shadow:8px 0 32px rgba(0,0,0,.28);pointer-events:auto;border-radius:0 22px 22px 0;overflow:hidden}
+#drawer-root.open .drw{transform:none}
+.drw-top{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 16px) 14px 14px;background:linear-gradient(160deg,var(--g),var(--g2));color:#fff}
+.drw-top img{width:44px;height:44px;object-fit:contain;flex:none}
+.drw-t{display:flex;flex-direction:column;min-width:0;flex:1}
+.drw-t b{font-family:var(--fd);letter-spacing:.14em;font-size:17px;font-weight:800;color:var(--y)}
+.drw-t small{font-size:10.5px;color:rgba(255,255,255,.8)}
+.drw-top .ib{background:rgba(255,255,255,.16);color:#fff;width:34px;height:34px}
+.drw-user{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
+.drw-user .avatar{width:44px;height:44px}
+.drw-user .ic{color:#94a3b8}
+.drw-dept{display:flex;align-items:center;gap:10px;margin:10px 12px 2px;padding:9px 12px;border-radius:14px;background:#f1f7f3;border:1px solid #dcebe2;text-align:left;width:calc(100% - 24px);color:var(--g)}
+.drw-dept small{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
+.drw-dept b{font-size:13px;color:var(--ink)}
+.drw-body{flex:1;overflow-y:auto;padding:2px 10px 8px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.drw-h{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--mut);padding:14px 10px 4px;font-weight:700}
+.drw-i{display:flex;align-items:center;gap:13px;width:100%;text-align:left;padding:11px 12px;border-radius:12px;font-weight:600;font-size:13.5px;color:#1e293b}
+.drw-i .ic{color:#64748b}
+.drw-i:active{background:#f1f5f2}
+.drw-i.on{background:#e6f4ec;color:var(--g)}.drw-i.on .ic{color:var(--g)}
+.drw-i.red,.drw-i.red .ic{color:var(--bad)}
+.drw-foot{border-top:1px solid var(--line);padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 10px)}
+.drw-foot small{display:block;text-align:center;color:var(--mut);font-size:10.5px;margin-top:2px}
+body.drw-open{overflow:hidden}
+.pr-hero{display:flex;align-items:center;gap:12px}
+.pr-hero>.ic{width:42px;height:42px;padding:9px;border-radius:14px;background:#e6f4ec;color:var(--g)}
+.pr-hero b{display:block;font-family:var(--fd);font-size:15px}.pr-hero small{color:var(--mut);font-size:12px}
 </style>
 </head>
 <body>
@@ -236,7 +272,7 @@ const LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAYAAADNkKWqAA
 const BRAND='ZACAST', FULLNAME='Zamfara College of Arts, Science and Technology, Gusau';
 const SUBTITLE='Attendance Management System';
 const MOTTO='OH LORD INCREASE ME IN KNOWLEDGE';
-const VERSION='3.3.0';
+const VERSION='3.4.0';
 
 /* ===== Helpers ===== */
 const $=(s,r)=>(r||document).querySelector(s);
@@ -288,6 +324,9 @@ camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 
 building:'<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>'
 };
 IC.spark='<path d="M12 3l1.9 5.6 5.6 1.9-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/><path d="M19 3v4M17 5h4"/>';
+IC.menu='<path d="M4 6h16M4 12h16M4 18h16"/>';
+IC.archive='<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>';
+IC.cap='<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>';
 const ic=(n,s)=>'<svg class="ic" viewBox="0 0 24 24"'+(s?' style="width:'+s+'px;height:'+s+'px"':'')+'>'+IC[n]+'</svg>';
 
 /* ===== Local storage (with in-memory fallback) ===== */
@@ -436,6 +475,7 @@ function friendly(e){
  if(!e)return 'Something went wrong';
  if(e.code==='23505')return 'That serial number or admission number is already used in this department.';
  if(/'level' column/.test(e.message||''))return 'Please run supabase_update_levels.sql in Supabase first (see README).';
+ if(/archive_batches|admin_promote/.test(e.message||''))return 'Please run supabase_update_promote.sql in Supabase first (see README).';
  if(e.code==='PGRST205'||e.code==='42P01')return 'Database tables not found. Run supabase_setup.sql in Supabase first.';
  return e.message||'Something went wrong';
 }
@@ -477,7 +517,7 @@ function popRoute(){route=stack.pop()||{n:'dashboard',p:{}};render()}
 function back(){if(histOK&&stack.length){history.back()}else popRoute()}
 window.addEventListener('popstate',()=>{if(stack.length)popRoute()});
 function render(){
- closeModal();
+ closeModal();closeDrawer();
  if(NEEDS[route.n]&&!dept){S.nodept();return}
  const f=S[route.n];if(f)f(route.p||{});
 }
@@ -493,7 +533,7 @@ function navHTML(cur){
 }
 function mainHead(sub,right){
  const r=right===undefined?'<button data-act="nav" data-n="profile" aria-label="Profile">'+avatarHTML()+'</button>':right;
- return '<header class="hd"><img class="hd-logo" src="'+LOGO+'" alt="'+BRAND+'"><div class="hd-t"><b>'+BRAND+'</b><small>'+esc(sub)+'</small></div><div class="hd-r">'+r+'</div></header>';
+ return '<header class="hd"><button class="ib hd-menu" data-act="drawer-open" aria-label="Open menu">'+ic('menu',20)+'</button><img class="hd-logo" src="'+LOGO+'" alt="'+BRAND+'"><div class="hd-t"><b>'+BRAND+'</b><small>'+esc(sub)+'</small></div><div class="hd-r">'+r+'</div></header>';
 }
 const subHead=(title,right)=>'<header class="hd sub"><button class="ib" data-act="back" aria-label="Back">'+ic('back')+'</button><h1>'+esc(title)+'</h1><div class="hd-r">'+(right||'')+'</div></header>';
 const NAVMAP={'student-form':'students','student-profile':'students',manage:'students',export:'students','session-form':'attendance',session:'attendance',absent:'attendance'};
@@ -1221,6 +1261,8 @@ S.settings=function(){
  li('toggle-sound','vol','Sound','Audio feedback on attendance & actions','','<span class="sw'+(soundOn()?' on':'')+'"></span>')+
  li('nav','users','Manage Students','View, search and delete students','','',' data-n="manage"')+
  li('nav','dl','Export Students','Student list as PDF or Excel','','',' data-n="export"')+
+ li('nav','cap','Promote ND I → ND II','End of year: move ND I to ND II in one tap','','',' data-n="promote"')+
+ li('nav','archive','Archive','Finished ND II students (kept safely)','','',' data-n="archive"')+
  li('do-backup','db','Download Backup','Save all departments &amp; records to a file','yel')+
  li('nav','info','About',BRAND+' Attendance • Version '+VERSION,'','',' data-n="about"')+
  li('logout','out','Logout','End administrative session','red','<span style="color:var(--bad)">'+ic('chev')+'</span>')+'</div>'+
@@ -1292,8 +1334,8 @@ S.about=function(){
 };
 
 /* ===== AI mode (type a command in English or Hausa) ===== */
-const AIH={msgs:[],pending:null};
-const AI_STOP=' find search show list display look for get me the a an of in to all student students dalibai dalibi dalibin department dept nd i ii 1 2 one two year please nemo nema nuna bincika duba ina na a cikin '.split(' ').filter(Boolean);
+const AIH={msgs:[],pending:null,more:null};
+const AI_STOP=' find search show list display look for get me the a an of in to all student students dalibai dalibi dalibin department dept nd i ii 1 2 one two year please nemo nema nuna bincika duba ina na a cikin who is whois where yana wanene wane '.split(' ').filter(Boolean);
 const aiNorm=s=>' '+String(s||'').toLowerCase().replace(/ɗ/g,'d').replace(/ƙ/g,'k').replace(/ɓ/g,'b').replace(/[’'`]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ')+' ';
 const aiSay=(r,h)=>{AIH.msgs.push({r:r,h:h});if(route.n==='ai')aiPaint()};
 function aiPaint(){
@@ -1302,10 +1344,14 @@ function aiPaint(){
  const w=$('#aiw');if(w&&dept)w.innerHTML='Working in <b>'+esc(dept.name)+'</b>';
  window.scrollTo(0,document.body.scrollHeight);
 }
-const AI_CHIPS=['Find ND II student','Export all students to PDF','How many students?','Help'];
-const AI_HELP='I understand English and Hausa. Try:<br>• <b>Find ND II student</b> / <b>Find Aminu</b><br>• <b>Export all students to PDF</b> (or Excel)<br>• <b>Mark all students in Computer Science ND I present</b><br>• <b>Add student Aminu Sani, 36201</b><br>• <b>How many students in ND I?</b><br>• <b>Delete all students</b><br>• <b>Open reports</b> / <b>Open ND I</b><br>Hausa: <i>nemo dalibai ND II</i>, <i>fitar da dukkan dalibai PDF</i>, <i>yi alama duka sun halarci</i>, <i>goge duka dalibai</i>, <i>nawa ne dalibai</i>.';
+const AI_CHIPS=['Find ND II student','Add student','Promote ND I to ND II','How many students?','Export all students to PDF','Help'];
+const AI_HELP='I understand English and Hausa (and small spelling mistakes). Try:<br>'+
+ '<b>Search</b><br>• <b>Find Aminu</b> / <b>Find 36201</b> (searches ALL departments)<br>• <b>Find Aminu in ND II</b> / <b>Find Aminu in Computer Science ND I</b><br>• <b>List ND I students</b> (then type <b>more</b>)<br>'+
+ '<b>Add</b><br>• <b>Add student Aminu Sani, 36201</b><br>• <b>Add Aminu Sani 36201 to Computer Science ND I</b><br>• Many at once: <b>Add students: Aminu Sani, 36201; Bala Musa, 36202</b><br>• Or just type <b>Add student</b> and I will ask you step by step<br>'+
+ '<b>Other</b><br>• <b>Promote ND I to ND II</b> (or add a department name)<br>• <b>Open archive</b><br>• <b>Delete student Aminu</b> / <b>Delete all students</b><br>• <b>Mark all students in Computer Science ND I present</b><br>• <b>Export all students to PDF</b> (or Excel)<br>• <b>How many students?</b> / <b>Open reports</b> / <b>Open ND I</b><br>'+
+ 'Hausa: <i>nemo Aminu</i>, <i>ƙara dalibi Aminu Sani, 36201</i>, <i>mayar da ND I zuwa ND II</i>, <i>goge dalibi Aminu</i>, <i>fitar da dukkan dalibai PDF</i>, <i>nawa ne dalibai</i>.';
 S.ai=function(){
- if(!AIH.msgs.length)AIH.msgs.push({r:'bot',h:'<b>Welcome!</b> What can I help you with?<div class="aichips">'+AI_CHIPS.map(x=>'<button data-act="ai-chip" data-t="'+x+'">'+x+'</button>').join('')+'</div>'});
+ if(!AIH.msgs.length)AIH.msgs.push({r:'bot',h:'<b>Welcome!</b> I can find and add students, promote ND I to ND II, take attendance and more. What do you want?<div class="aichips">'+AI_CHIPS.map(x=>'<button data-act="ai-chip" data-t="'+x+'">'+x+'</button>').join('')+'</div>'});
  shell(mainHead('AI Mode','<button class="ib" data-act="ai-clear" aria-label="Clear chat">'+ic('trash',18)+'</button><button data-act="nav" data-n="profile" aria-label="Profile">'+avatarHTML()+'</button>'),'<p class="muted" id="aiw" style="margin:0 0 8px"></p><div id="aic" class="aic"></div>','ai',
   '<form id="aif" class="aibar" autocomplete="off"><input id="aiq" placeholder="Type what you want (English or Hausa)…" autocomplete="off"><button class="aisend" aria-label="Send">'+ic('chev',20)+'</button></form>');
  aiPaint();
@@ -1335,24 +1381,185 @@ function aiCourse(t){
  sortedCourses().forEach(c=>{const k=aiNorm(c.code).replace(/\s+/g,'');if(k&&tn.indexOf(k)>-1&&(!best||k.length>best.k.length))best={c:c,k:k}});
  return best?best.c:null;
 }
+
+/* --- smart student search (all departments, typo tolerant) --- */
+async function aiAllStudents(){
+ const rows=await selectAll('students?select=id,serial,name,adm_no,department_id&order=serial.asc');
+ return rows.map(r=>{const d=depts.find(x=>x.id===r.department_id);return {id:r.id,serial:r.serial,name:r.name,admNo:r.adm_no,deptId:r.department_id,dept:d?d.name:'?',base:d?d.base:'',level:d?d.level:''}});
+}
+function aiLev(a,b){
+ if(a===b)return 0;if(Math.abs(a.length-b.length)>2)return 9;
+ let prev=[],cur=[],i,j;
+ for(j=0;j<=b.length;j++)prev[j]=j;
+ for(i=1;i<=a.length;i++){
+  cur=[i];
+  for(j=1;j<=b.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+  prev=cur;
+ }
+ return prev[b.length];
+}
+function aiScore(s,words,qc){
+ const nm=aiNorm(s.name).trim().split(' '),adm=String(s.admNo).toLowerCase().replace(/[^a-z0-9]/g,'');
+ if(qc.length>=3&&adm.indexOf(qc)>-1)return adm===qc?6:4;
+ let total=0;
+ for(const w of words){
+  let best=0;
+  if(adm===w)best=Math.max(best,3);
+  else if(w.length>=3&&adm.indexOf(w)>-1)best=Math.max(best,2.5);
+  if(words.length===1&&/^\d{1,4}$/.test(w)&&String(s.serial)===w)best=Math.max(best,2);
+  for(const n of nm){
+   if(n===w)best=Math.max(best,3);
+   else if(n.indexOf(w)===0)best=Math.max(best,2.5);
+   else if(w.length>=3&&n.indexOf(w)>-1)best=Math.max(best,1.8);
+   else if(w.length>=4&&n.length>=4&&aiLev(n,w)<=(w.length>=7?2:1))best=Math.max(best,1.5);
+  }
+  if(!best)return 0;
+  total+=best;
+ }
+ return total;
+}
+const aiStuRow=s=>'<button class="row" data-act="ai-stu" data-d="'+s.deptId+'" data-id="'+s.id+'"><span class="sn">'+s.serial+'</span><span class="rw"><b>'+esc(s.name)+'</b><small>Adm No: '+esc(s.admNo)+' • '+esc(s.dept)+'</small></span>'+ic('chev')+'</button>';
+function aiShowList(head,rows,html){
+ const PAGE=15;
+ AIH.more=rows.length>PAGE?{head:head,rows:rows,idx:PAGE}:null;
+ aiSay('bot',head+rows.slice(0,PAGE).map(html).join('')+(rows.length>PAGE?'<div class="muted" style="margin:8px 0 0">Showing '+PAGE+' of '+rows.length+'. Type <b>more</b> to see the next ones, or type a name to narrow down.</div>':''));
+ AIH.html=html;
+}
+function aiMoreList(){
+ const m=AIH.more;if(!m)return aiSay('bot','There is nothing more to show.');
+ const PAGE=15,part=m.rows.slice(m.idx,m.idx+PAGE);m.idx+=PAGE;
+ const left=m.rows.length-m.idx;
+ if(left<=0)AIH.more=null;
+ aiSay('bot','Next '+part.length+':'+part.map(AIH.html).join('')+(left>0?'<div class="muted" style="margin:8px 0 0">'+left+' more. Type <b>more</b> again.</div>':'<div class="muted" style="margin:8px 0 0">That is all.</div>'));
+}
+async function aiFind(q,scope){
+ const all=await work('Searching…',aiAllStudents);
+ let pool=all;
+ if(scope.base)pool=pool.filter(s=>s.base===scope.base);
+ if(scope.level)pool=pool.filter(s=>s.level===scope.level);
+ const where=(scope.base?esc(scope.base)+' ':'')+(scope.level||'')||'all departments';
+ const words=aiNorm(q).trim().split(' ').filter(Boolean),qc=String(q).toLowerCase().replace(/[^a-z0-9]/g,'');
+ let res;
+ if(!words.length){res=pool.slice().sort((a,b)=>a.dept.localeCompare(b.dept)||a.serial-b.serial)}
+ else{
+  res=pool.map(s=>({s:s,k:aiScore(s,words,qc)})).filter(x=>x.k>0).sort((a,b)=>b.k-a.k||a.s.dept.localeCompare(b.s.dept)||a.s.serial-b.s.serial).map(x=>x.s);
+ }
+ if(!res.length){
+  return aiSay('bot','No student found'+(q?' for “'+esc(q)+'”':'')+' in <b>'+where+'</b>.'+(q?'<div class="aichips"><button data-act="ai-chip" data-t="Add student '+esc(q)+'">Add this student</button></div>':''));
+ }
+ aiShowList('Found <b>'+res.length+'</b> student(s)'+(q?' for “'+esc(q)+'”':'')+' in <b>'+where+'</b>:',res,aiStuRow);
+}
+
+/* --- add student(s) --- */
+const aiRx=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function aiStripTarget(body){
+ let b=' '+body+' ';
+ depts.forEach(d=>{[d.base,d.code].filter(Boolean).forEach(x=>{b=b.replace(new RegExp('\\s(?:to|in|into|zuwa|cikin|a|for|department|dept)\\s+(?:department\\s+|dept\\s+)?'+aiRx(x)+'(?=[\\s,;.]|$)','ig'),' ')})});
+ b=b.replace(/\s(?:(?:to|in|into|zuwa|cikin|a|for)\s+)?(?:nd|n\.d\.?)\s*(?:ii|i|2|1|two|one|biyu|daya)(?=[\s,;.]|$)/ig,' ');
+ b=b.replace(/\s(?:to|in|into|zuwa|cikin)\s+(?:year|shekara ta)\s*(?:1|2|one|two|i|ii)(?=[\s,;.]|$)/ig,' ');
+ return b.trim().replace(/[\s,;]+(?:to|in|into|zuwa|cikin|a)$/i,'').trim();
+}
+function aiParseOne(s){
+ s=String(s||'').trim().replace(/^\d+[\.\)]\s+/,'');
+ if(!s)return null;
+ let adm=null,name=s;
+ const m=s.match(/(?:^|[\s,])(?:adm(?:ission)?(?:\s*(?:no\.?|number|num))?|reg(?:istration)?(?:\s*(?:no\.?|number))?|matric(?:\s*no\.?)?|lamba(?:\s+ta)?|number|no\.?)\s*[:=\-]?\s*([A-Za-z0-9][A-Za-z0-9\/\-\._]*)/i);
+ if(m&&/\d/.test(m[1])){adm=m[1];name=s.replace(m[0],' ')}
+ else{
+  const toks=s.split(/[\s,]+/).filter(Boolean);
+  for(let i=toks.length-1;i>=0;i--){if(/\d/.test(toks[i])){adm=toks[i];toks.splice(i,1);break}}
+  name=toks.join(' ');
+ }
+ name=name.replace(/[,;:]+/g,' ').replace(/\s+/g,' ').trim().replace(/^(?:named|name|called|mai suna|sunan|suna)\s+/i,'').replace(/\s+(?:with|and|da|whose|number|lamba|no|adm|admission)\.?$/i,'').trim();
+ if(adm)adm=adm.replace(/[.,;]+$/,'');
+ if(!/\p{L}/u.test(name))name='';
+ return {name:name,adm:adm};
+}
+function aiParseAdd(raw){
+ const m=raw.match(/(?:add|register|enrol+l?|create|insert|k[aā]ra|ƙ[aā]ra|saka|shigar(?:\s+da)?|yi\s+rij?ista|rij?ista)\s+(?:a\s+|an\s+|the\s+|new\s+|sabon\s+|sabuwar\s+)*(?:students?|d[aā]lib(?:i|ai|in)|ɗ[aā]lib(?:i|ai|in))?\s*[:\-]?\s*/i);
+ let body=m?raw.slice(m.index+m[0].length):raw;
+ body=aiStripTarget(body);
+ let parts=body.split(/\r?\n|;/).map(x=>x.trim()).filter(Boolean);
+ if(parts.length<2){
+  const sp=body.split(/\s+(?:and|&|da)\s+/i);
+  if(sp.length>1&&sp.every(p=>/\d/.test(p)))parts=sp;
+ }
+ return parts.map(aiParseOne).filter(Boolean);
+}
+async function aiAddStudents(g,entries){
+ if(!g.d)return aiSay('bot','I could not find that department or level.');
+ if(!await aiUse(g.d))return;
+ const rows=[],skip=[],warn=[],seen={};let next=nextSerial();
+ entries.forEach(e=>{
+  const name=cleanName(e.name).toUpperCase(),adm=String(e.adm).trim(),k=adm.toLowerCase();
+  if(admTaken(adm)||seen[k]){const ex=db.students.find(s=>String(s.admNo).trim().toLowerCase()===k);skip.push('<b>'+esc(name)+'</b> — admission no. '+esc(adm)+' is already used'+(ex?' by '+esc(ex.name):'')+'.');return}
+  const dup=db.students.find(s=>aiNorm(s.name)===aiNorm(name));
+  if(dup)warn.push('A student named <b>'+esc(dup.name)+'</b> (Adm '+esc(dup.admNo)+') already exists — please check it is not a duplicate.');
+  seen[k]=1;while(serialTaken(next))next++;
+  rows.push({department_id:dept.id,serial:next,name:name,adm_no:adm});next++;
+ });
+ let added=[];
+ if(rows.length){
+  const out=await act('Saving…',async()=>{const res=[];for(let i=0;i<rows.length;i+=200){const part=await api('POST','students',rows.slice(i,i+200),{Prefer:'return=representation'});res.push.apply(res,part)}return res});
+  if(!out)return aiSay('bot','Could not add the student(s).');
+  out.forEach(r=>{const s=mapStu(r);db.students.push(s);added.push(s)});beep(784);
+ }
+ let h='';
+ if(added.length===1)h='✓ Added <b>'+esc(added[0].name)+'</b> (Adm '+esc(added[0].admNo)+', S/N '+added[0].serial+') to <b>'+esc(dept.name)+'</b>.';
+ else if(added.length>1)h='✓ Added <b>'+added.length+'</b> students to <b>'+esc(dept.name)+'</b>:'+added.slice(0,15).map(s=>'<br>• '+s.serial+'. '+esc(s.name)+' ('+esc(s.admNo)+')').join('')+(added.length>15?'<br>…and '+(added.length-15)+' more.':'');
+ if(skip.length)h+=(h?'<br>':'')+'⚠ Not added:<br>'+skip.map(x=>'• '+x).join('<br>');
+ if(warn.length)h+='<br>'+warn.join('<br>');
+ if(added.length===1)h+='<div class="aichips"><button data-act="ai-chip" data-t="Add student">Add another</button></div>';
+ aiSay('bot',h||'Nothing was added.');
+}
+
+/* --- promote ND I -> ND II --- */
+function aiAskPromote(base){promoteConfirm(base||null,true)}
+
 async function aiRun(raw){
  aiSay('me',esc(raw));
  try{await aiHandle(raw,aiNorm(raw))}catch(e){aiSay('bot','⚠ '+esc(friendly(e)))}
 }
 async function aiHandle(raw,t){
  const has=r=>r.test(t);
- if(has(/ (clear|delete|erase|goge|share|cire) /)&&has(/ (chat|chart|conversation|conversations|messages|tattaunawa|hira) /)){AIH.msgs=[];AIH.pending=null;S.ai();return}
+ if(has(/ (clear|delete|erase|goge|share|cire) /)&&has(/ (chat|chart|conversation|conversations|messages|tattaunawa|hira) /)){AIH.msgs=[];AIH.pending=null;AIH.more=null;S.ai();return}
  if(AIH.pending){
   const p=AIH.pending;
-  if(has(/ (cancel|stop|no|babu|soke) /)){AIH.pending=null;return aiSay('bot','Okay, cancelled.')}
-  const c=aiCourse(t);
-  if(c){AIH.pending=null;return aiMark(p.status,c)}
-  return aiSay('bot','I did not find that course. Type one of: <b>'+sortedCourses().map(x=>esc(x.code)).join(', ')+'</b> (or “cancel”).');
+  if(has(/ (cancel|stop|no|babu|soke|bar shi|ba komai) /)){AIH.pending=null;return aiSay('bot','Okay, cancelled.')}
+  if(p.type==='add-name'||p.type==='add-adm'){
+   const isCmd=has(/ (find|search|nemo|nema|export|delete|goge|help|taimako|open|mark|how many|nawa|promote|mayar) /);
+   if(isCmd){AIH.pending=null}
+   else{
+    if(p.type==='add-name'){
+     const one=aiParseOne(raw)||{};
+     const name=one.name||cleanName(raw.replace(/[0-9]/g,''));
+     if(!/\p{L}/u.test(name))return aiSay('bot','Please type the student’s full name (or “cancel”).');
+     if(one.adm){AIH.pending=null;return aiAddStudents(p.g,[{name:name,adm:one.adm}])}
+     AIH.pending={type:'add-adm',g:p.g,name:name};
+     return aiSay('bot','Name: <b>'+esc(name.toUpperCase())+'</b>. What is the <b>admission number</b>?');
+    }
+    const full=(aiParseOne(raw)||{}).adm;
+    if(!full)return aiSay('bot','I need the admission number (it must contain a number), or type “cancel”.');
+    AIH.pending=null;return aiAddStudents(p.g,[{name:p.name,adm:full}]);
+   }
+  }else{
+   const c=aiCourse(t);
+   if(c){AIH.pending=null;return aiMark(p.status,c)}
+   return aiSay('bot','I did not find that course. Type one of: <b>'+sortedCourses().map(x=>esc(x.code)).join(', ')+'</b> (or “cancel”).');
+  }
  }
+ if(has(/^ (more|next|kari|ci gaba|show more|more results|sauran) $/))return aiMoreList();
  const all=has(/ (all|every|everyone|duka|dukka|dukkan|kowa) /),stu=has(/ (student|students|dalibai|dalibi|dalibin|almajirai) /);
  const present=has(/ (present|halarci|sun halarci|ya halarci|sun zo|ya zo|yazo) /),absent=has(/ (absent|bai zo|basu zo|ba su zo|rashin zuwa|ba sa nan) /);
  if(has(/ (help|taimako|taimaka|me zaka iya|abin da zaka iya) /))return aiSay('bot',AI_HELP);
  if(has(/ (hello|hi|hey|sannu|barka|ina kwana|ina wuni) /)&&t.trim().split(' ').length<4)return aiSay('bot','Hello! What can I help you with?');
+ // promote ND I -> ND II
+ if(has(/ (promote|promotion|promot) /)||(has(/ (mayar|maida|mayarda|tura|haura) /)&&has(/ nd ?(i|1|ii|2) /))){
+  const b=aiBase(t);
+  return aiAskPromote(b);
+ }
+ // archive
+ if(has(/ (archive|archived|ajiya|ajiye|ajiyayyun) /)&&has(/ (open|show|view|list|nuna|bude|duba|see) /)||t.trim()==='archive'){setTimeout(()=>nav('archive'),250);return aiSay('bot','Opening the archive…')}
  // delete all students
  if(has(/ (delete|remove|clear|erase|goge|share|cire) /)&&all&&stu){
   const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
@@ -1372,17 +1579,35 @@ async function aiHandle(raw,t){
   if(!c){AIH.pending={status:status};return aiSay('bot','Which course? Type one of: <b>'+sortedCourses().map(x=>esc(x.code)).join(', ')+'</b>')}
   return aiMark(status,c);
  }
- // add student
- const am=raw.match(/(?:add|register|kara|ƙara|saka)\s+(?:a\s+|new\s+|sabon\s+)?(?:student|dalibi|ɗalibi)\s*:?\s*(.+?)\s*[,;]\s*(\S+?)(?:\s+(?:to|in|a|cikin|zuwa)\s+.*)?$/i);
- if(am){
-  const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
-  if(!await aiUse(g.d))return;
-  const name=cleanName(am[1]).toUpperCase(),adm=am[2].trim();
-  if(admTaken(adm))return aiSay('bot','Admission number <b>'+esc(adm)+'</b> is already registered in '+esc(dept.name)+'.');
-  const r=await act('Saving…',()=>api('POST','students',[{department_id:dept.id,serial:nextSerial(),name:name,adm_no:adm}],{Prefer:'return=representation'}));
-  if(!r)return aiSay('bot','Could not add the student.');
-  db.students.push(mapStu(r[0]));beep(784);
-  return aiSay('bot','✓ Added <b>'+esc(name)+'</b> ('+esc(adm)+') to <b>'+esc(dept.name)+'</b>.');
+ // add student(s)
+ if(has(/ (add|register|enrol|enroll|insert|create|kara|saka|shigar|rijista|rajista) /)&&(stu||has(/^ (add|kara|saka|register|rijista|rajista) /))&&!has(/ (course|courses|department|dept|session|attendance|semester) /)){
+  const g=aiTarget(t);
+  if(!g.d)return aiSay('bot','I could not find that department or level.');
+  const list=aiParseAdd(raw);
+  const full=list.filter(x=>x.name&&x.adm),part=list.filter(x=>!(x.name&&x.adm));
+  if(full.length){
+   if(part.length)aiSay('bot','Note: I could not read '+part.length+' entr'+(part.length>1?'ies':'y')+' (each needs a name and an admission number).');
+   return aiAddStudents(g,full);
+  }
+  const target='<b>'+esc(g.d.name)+'</b>';
+  if(part.length===1&&part[0].name){AIH.pending={type:'add-adm',g:g,name:part[0].name};return aiSay('bot','Adding <b>'+esc(part[0].name.toUpperCase())+'</b> to '+target+'. What is the <b>admission number</b>?')}
+  if(part.length===1&&part[0].adm){AIH.pending={type:'add-name',g:g};return aiSay('bot','Admission no. <b>'+esc(part[0].adm)+'</b>. What is the student’s <b>full name</b>?')}
+  AIH.pending={type:'add-name',g:g};
+  return aiSay('bot','Okay, adding a student to '+target+'. What is the student’s <b>full name</b>? <span class="muted">(you can also type: Name, Admission No.)</span>');
+ }
+ // delete ONE student
+ if(has(/ (delete|remove|erase|goge|share|cire) /)&&stu&&!all){
+  const lv=aiLevel(t),b=aiBase(t);
+  const q=t.trim().split(' ').filter(w=>w&&AI_STOP.indexOf(w)<0&&!/^(delete|remove|erase|goge|share|cire)$/.test(w)).join(' ');
+  if(!q)return aiSay('bot','Which student? Example: <b>Delete student Aminu Sani</b>');
+  const pool=(await work('Searching…',aiAllStudents)).filter(s=>(!b||s.base===b)&&(!lv||s.level===lv));
+  const words=aiNorm(q).trim().split(' ').filter(Boolean),qc=q.replace(/[^a-z0-9]/g,'');
+  const res=pool.map(s=>({s:s,k:aiScore(s,words,qc)})).filter(x=>x.k>0).sort((a,b2)=>b2.k-a.k);
+  if(!res.length)return aiSay('bot','I did not find a student for “'+esc(q)+'”.');
+  if(res.length>1&&res[0].k===res[1].k)return aiShowList('I found <b>'+res.length+'</b> students. Be more specific (use the admission number), or open the one you want:',res.map(x=>x.s),aiStuRow);
+  const s=res[0].s,d=depts.find(x=>x.id===s.deptId);
+  if(!await aiUse(d))return;
+  return deleteStudent(s.id,()=>aiSay('bot','✓ <b>'+esc(s.name)+'</b> was deleted from '+esc(d.name)+'.'));
  }
  // export
  if(has(/ (export|download|print|fitar|sauke|fito|buga) /)){
@@ -1396,27 +1621,32 @@ async function aiHandle(raw,t){
  }
  // count
  if(has(/ (how many|count|number of|nawa|yawan|total) /)){
-  const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
-  if(!await aiUse(g.d))return;
-  return aiSay('bot','<b>'+esc(dept.name)+'</b> has <b>'+db.students.length+'</b> student(s).');
+  const g=aiTarget(t);
+  if(g.explicit){
+   if(!g.d)return aiSay('bot','I could not find that department or level.');
+   if(!await aiUse(g.d))return;
+   return aiSay('bot','<b>'+esc(dept.name)+'</b> has <b>'+db.students.length+'</b> student(s).');
+  }
+  const rows=await work('Counting…',()=>selectAll('students?select=department_id&order=id.asc'));
+  const c={};rows.forEach(r=>{c[r.department_id]=(c[r.department_id]||0)+1});
+  return aiSay('bot','Total students: <b>'+rows.length+'</b>.<br>'+depts.map(d=>'• '+esc(d.name)+': <b>'+(c[d.id]||0)+'</b>').join('<br>'));
  }
  // open page / switch department
  const pages={dashboard:'dashboard',students:'students',attendance:'attendance',reports:'reports',report:'reports',settings:'settings'};
  if(has(/ (open|go to|goto|take me|bude|je|koma|switch) /)){
   for(const k in pages){if(t.indexOf(' '+k+' ')>-1){setTimeout(()=>tab(pages[k]),250);return aiSay('bot','Opening '+k+'…')}}
   if(t.indexOf(' courses ')>-1){setTimeout(()=>nav('courses'),250);return aiSay('bot','Opening courses…')}
+  if(t.indexOf(' promote ')>-1){setTimeout(()=>nav('promote'),250);return aiSay('bot','Opening Promote…')}
   const g=aiTarget(t);
   if(g.explicit&&g.d){if(!await aiUse(g.d))return;return aiSay('bot','✓ Now working in <b>'+esc(dept.name)+'</b> ('+db.students.length+' students).')}
  }
  // find / list students
  const q=t.trim().split(' ').filter(w=>w&&AI_STOP.indexOf(w)<0&&!(aiBase(t)&&aiNorm(aiBase(t)).indexOf(' '+w+' ')>-1)).join(' ');
- const finder=has(/ (find|search|show|list|display|look|get|nemo|nema|nuna|bincika|duba) /);
+ const finder=has(/ (find|search|show|list|display|look|get|nemo|nema|nuna|bincika|duba|who|wanene|where) /);
  if(finder||stu||(q&&q.split(' ').length<=4)){
-  const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
-  if(!await aiUse(g.d))return;
-  const l=sortedStudents().filter(s=>matches(s,q));
-  if(!l.length)return aiSay('bot','No student found'+(q?' for “'+esc(q)+'”':'')+' in <b>'+esc(dept.name)+'</b>.');
-  return aiSay('bot','Found <b>'+l.length+'</b> student(s) in <b>'+esc(dept.name)+'</b>'+(q?' for “'+esc(q)+'”':'')+':'+l.slice(0,15).map(s=>stuRow(s)).join('')+(l.length>15?'<div class="muted" style="margin:8px 0 0">…and '+(l.length-15)+' more. Type a name to narrow down.</div>':''));
+  const lv=aiLevel(t),b=aiBase(t);
+  const base=b||(!q&&dept?dept.base:null);
+  return aiFind(q,{base:base,level:lv});
  }
  aiSay('bot','Sorry, I did not understand that. Type <b>Help</b> to see what I can do.');
 }
@@ -1436,9 +1666,159 @@ async function aiMark(status,c){
  }});
 }
 
+/* ===== Left side menu (open / close) ===== */
+const DRW_ITEMS=[
+ ['Main',[['dashboard','grid','Dashboard','tab'],['students','users','Students','tab'],['attendance','clip','Attendance','tab'],['ai','spark','AI Mode','tab'],['reports','chart','Reports','tab']]],
+ ['Manage',[['courses','book','Courses','nav'],['departments','building','Departments','nav'],['manage','users','Manage Students','nav'],['export','dl','Export Students','nav'],['promote','cap','Promote ND I → ND II','nav'],['archive','archive','Archive','nav']]],
+ ['More',[['settings','gear','Settings','tab'],['about','info','About','nav']]]
+];
+function drwRoot(){
+ let r=$('#drawer-root');
+ if(!r){r=document.createElement('div');r.id='drawer-root';document.body.appendChild(r)}
+ return r;
+}
+function drwHTML(){
+ const nm=cleanName(admin.fullName||admin.username)||'Admin';
+ const act=route.n,tabs={'student-form':'students','student-profile':'students',session:'attendance','session-form':'attendance',absent:'attendance','archive-view':'archive'};
+ const cur=tabs[act]||act;
+ return '<div class="drw-ov" data-act="drawer-close"></div><div class="drw-wrap"><aside class="drw" role="dialog" aria-label="Menu">'+
+  '<div class="drw-top"><img src="'+LOGO+'" alt=""><div class="drw-t"><b>'+BRAND+'</b><small>'+esc(SUBTITLE)+'</small></div><button class="ib" data-act="drawer-close" aria-label="Close menu">'+ic('x',18)+'</button></div>'+
+  '<button class="drw-user" data-act="nav" data-n="profile">'+avatarHTML()+'<span class="rw"><b>'+esc(nm)+'</b><small>'+esc(admin.username)+'</small></span>'+ic('chev')+'</button>'+
+  '<button class="drw-dept" data-act="pick-dept">'+ic('building',18)+'<span class="rw"><small>Department</small><b>'+esc(dept?dept.name:'None selected')+'</b></span>'+ic('chev',16)+'</button>'+
+  '<div class="drw-body">'+DRW_ITEMS.map(g=>'<div class="drw-h">'+g[0]+'</div>'+g[1].map(i=>'<button class="drw-i'+(cur===i[0]?' on':'')+'" data-act="'+i[3]+'" data-n="'+i[0]+'">'+ic(i[1])+'<span>'+i[2]+'</span></button>').join('')).join('')+'</div>'+
+  '<div class="drw-foot"><button class="drw-i red" data-act="logout">'+ic('out')+'<span>Logout</span></button><small>'+BRAND+' • v'+VERSION+'</small></div>'+
+  '</aside></div>';
+}
+function openDrawer(){
+ if(!token||!$('nav.nav'))return;
+ const r=drwRoot();r.innerHTML=drwHTML();
+ r.getBoundingClientRect();
+ r.classList.add('open');document.body.classList.add('drw-open');
+ const on=r.querySelector('.drw-i.on');if(on&&on.scrollIntoView){try{on.scrollIntoView({block:'center'})}catch(e){}}
+}
+function closeDrawer(){
+ const r=$('#drawer-root');if(!r||!r.classList.contains('open'))return;
+ r.classList.remove('open');document.body.classList.remove('drw-open');
+}
+const drwIsOpen=()=>{const r=$('#drawer-root');return !!(r&&r.classList.contains('open'))};
+document.addEventListener('click',e=>{if(e.target.closest('#drawer-root [data-act]'))closeDrawer()},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&drwIsOpen())closeDrawer()});
+(function(){ // swipe: from the left edge to open, swipe left to close
+ let x0=0,y0=0,on=false,mode='';
+ document.addEventListener('touchstart',e=>{
+  const t=e.touches[0];x0=t.clientX;y0=t.clientY;on=true;
+  mode=drwIsOpen()?'close':(x0<=18&&!document.querySelector('#modal-root .ov')?'open':'');
+ },{passive:true});
+ document.addEventListener('touchmove',e=>{
+  if(!on||!mode)return;
+  const t=e.touches[0],dx=t.clientX-x0,dy=Math.abs(t.clientY-y0);
+  if(dy>45){on=false;return}
+  if(mode==='open'&&dx>60){on=false;openDrawer()}
+  else if(mode==='close'&&dx<-60){on=false;closeDrawer()}
+ },{passive:true});
+ document.addEventListener('touchend',()=>{on=false},{passive:true});
+})();
+
+/* ===== Promote ND I -> ND II (with archive) ===== */
+let promoting=false;
+async function promoteRun(base,fromAI){
+ if(promoting)return;promoting=true;
+ try{
+  const r=await act('Promoting…',()=>rpc('admin_promote',{p_base:base||null}));
+  if(!r)return;
+  if(!r.ok){toast(r.error||'Could not promote',true);return}
+  if(dept){await act('Refreshing…',()=>loadDeptData(dept.id))}
+  beep(784);
+  const lines=(r.detail||[]).map(x=>'• <b>'+esc(x.department)+'</b>: '+x.promoted+' moved to ND II'+(x.archived?', '+x.archived+' archived':'')).join('<br>');
+  const msg=r.departments?'Promoted <b>'+r.promoted+'</b> student(s) from ND I to ND II in <b>'+r.departments+'</b> department(s). <b>'+r.archived+'</b> finished ND II student(s) were archived.':'There was nothing to promote (ND I and ND II are both empty).';
+  if(fromAI||route.n==='ai')aiSay('bot','✓ '+msg+(lines?'<br>'+lines:'')+'<div class="aichips"><button data-act="nav" data-n="archive">Open Archive</button></div>');
+  else{
+   modal('<h3>Promotion complete</h3><p>'+msg+'</p>'+(lines?'<p>'+lines+'</p>':'')+'<div class="btns"><button class="btn out" data-act="to-archive">Open Archive</button><button class="btn" data-act="m-cancel">OK</button></div>');
+   if(route.n==='promote')S.promote();
+  }
+ }finally{promoting=false}
+}
+function promoteConfirm(base,fromAI){
+ const bl=base?baseList().filter(b=>b.base===base):baseList();
+ if(!bl.length){const m='I could not find that department.';if(fromAI)aiSay('bot',m);else toast(m,true);return}
+ const scope=base?'<b>'+esc(base)+'</b>':'<b>ALL '+bl.length+' department(s)</b>';
+ confirmBox({title:'Promote ND I → ND II?',
+  html:'For '+scope+' this will:<br>• <b>archive</b> the present ND II students (kept safely in Archive)<br>• move <b>all ND I students to ND II</b><br>• leave ND I empty for the new intake.<br><br>Attendance of both levels is saved in the archive, then cleared. Courses are kept. This is done all at once.',
+  ok:'Yes, Promote',danger:true,onOk:()=>{closeModal();promoteRun(base,fromAI)}});
+}
+S.promote=async function(){
+ shell(subHead('Promote ND I → ND II'),'<div class="empty"><div class="spin" style="margin:0 auto"></div></div>','settings');
+ const counts={};
+ try{const rows=await selectAll('students?select=department_id&order=id.asc');rows.forEach(r=>{counts[r.department_id]=(counts[r.department_id]||0)+1})}
+ catch(e){if(route.n==='promote')fail(e);return}
+ if(route.n!=='promote')return;
+ const bl=baseList();
+ let n1=0,n2=0;
+ bl.forEach(b=>{const a=b.rows.find(x=>x.level==='ND I'),c=b.rows.find(x=>x.level==='ND II');b.n1=a?(counts[a.id]||0):0;b.n2=c?(counts[c.id]||0):0;n1+=b.n1;n2+=b.n2});
+ const html='<div class="card" style="margin-bottom:14px"><div class="pr-hero">'+ic('cap',26)+'<div><b>End of the year</b><small>Move the whole ND I class to ND II in one tap.</small></div></div>'+
+  '<div class="three" style="margin:12px 0;grid-template-columns:1fr 1fr"><div class="mt p"><b>'+n1+'</b><span>ND I now</span></div><div class="mt a"><b>'+n2+'</b><span>ND II finishing</span></div></div>'+
+  '<p class="muted" style="margin:0 0 12px">The finishing <b>ND II</b> students are saved in the <b>Archive</b> (nothing is lost). Then every <b>ND I</b> student becomes <b>ND II</b>, and ND I is empty for the new students.</p>'+
+  (bl.length?'<button class="btn" data-act="promote-all">'+ic('cap',18)+'Promote ALL departments</button>':'<div class="empty">No departments yet.</div>')+'</div>'+
+  '<div class="sec"><h3>Or one department</h3></div>'+
+  bl.map((b,i)=>'<div class="srow"><span class="ico">'+ic('building')+'</span><span class="rw"><b>'+esc(b.base)+'</b><small>ND I: '+b.n1+' → ND II • ND II finishing: '+b.n2+'</small></span><button class="btn sm" style="width:auto;padding:8px 12px" data-act="promote-one" data-i="'+i+'">Promote</button></div>').join('')+
+  '<button class="btn out" data-act="nav" data-n="archive" style="margin-top:8px">'+ic('archive',18)+'Open Archive</button>';
+ shell(subHead('Promote ND I → ND II'),html,'settings');
+};
+
+/* ===== Archive (finished ND II classes) ===== */
+S.archive=async function(){
+ shell(subHead('Archive'),'<div class="empty"><div class="spin" style="margin:0 auto"></div></div>','settings');
+ let rows;
+ try{rows=await selectAll('archive_batches?select=id,department_name,department_code,label,student_count,archived_at&order=archived_at.desc')}
+ catch(e){
+  if(route.n!=='archive')return;
+  if(e&&(e.code==='42501'||e.status===401)){fail(e);return}
+  shell(subHead('Archive'),'<div class="empty">'+esc(friendly(e))+'</div>','settings');return;
+ }
+ if(route.n!=='archive')return;
+ const html='<p class="muted">Finished ND II classes are kept here when you promote ND I → ND II. Tap one to see, search or export the students.</p>'+
+  (rows.length?rows.map(b=>'<button class="row" data-act="archive-open" data-id="'+b.id+'"><span class="ico">'+ic('archive')+'</span><span class="rw"><b>'+esc(b.department_name)+'</b><small>'+esc(b.label)+'</small><small>'+b.student_count+' student(s) • saved '+esc(fmtDate(String(b.archived_at).slice(0,10)))+'</small></span>'+ic('chev')+'</button>').join(''):'<div class="empty">The archive is empty.<br>When you promote ND I → ND II, the finishing ND II students are saved here.<br><button class="btn sm" data-act="nav" data-n="promote">'+ic('cap',16)+'Promote ND I → ND II</button></div>');
+ shell(subHead('Archive'),html,'settings');
+};
+S['archive-view']=async function(p){
+ shell(subHead('Archive'),'<div class="empty"><div class="spin" style="margin:0 auto"></div></div>','settings');
+ let b;
+ try{const r=await api('GET','archive_batches?select=*&id=eq.'+encodeURIComponent(p.id));b=r&&r[0]}catch(e){if(route.n==='archive-view')fail(e);return}
+ if(route.n!=='archive-view')return;
+ if(!b){toast('Archive not found',true);popRoute();return}
+ const d=b.data||{},sts=(d.students||[]).slice().sort((a,c)=>a.serial-c.serial),recs=d.records||[];
+ const st={};recs.forEach(r=>{const x=st[r.student_id]||(st[r.student_id]={p:0,a:0});if(r.status==='present')x.p++;else x.a++});
+ const rate=s=>{const x=st[s.id]||{p:0,a:0},t=x.p+x.a;return {p:x.p,a:x.a,t:t,r:t?Math.round(x.p/t*100):null}};
+ curRep={file:'ZACAST_Archive_'+String(b.department_name).replace(/[^A-Za-z0-9]+/g,'_')+'_ND_II',title:'Archived Students - '+b.label,
+  meta:['Department: '+b.department_name,'Level: ND II (finished)','Total students: '+sts.length,'Archived: '+String(b.archived_at).slice(0,10)],
+  headers:['S/N','Name','Admission No.','Present','Absent','Rate %'],
+  rows:sts.map(s=>{const x=rate(s);return [s.serial,s.name,s.adm_no,x.p,x.a,x.r==null?'-':x.r]})};
+ const html='<div class="card prof"><div class="ring">'+sts.length+'</div><h2>'+esc(b.department_name)+'</h2><p>'+esc(b.label)+'</p><p>'+(d.sessions||[]).length+' attendance session(s) saved • '+(d.courses||[]).length+' course(s)</p></div>'+
+  (sts.length?exportBtns()+'<div class="sp"></div>'+rsearch()+'<div class="card" style="margin-top:12px">'+sts.map(s=>{const x=rate(s);return '<div class="mini"><span class="sn">'+s.serial+'</span><span class="rw"><b>'+esc(s.name)+'</b><small>Adm No: '+esc(s.adm_no)+(x.t?' • '+x.p+'/'+x.t+' present':'')+'</small></span><span class="chip '+(x.t?(x.r>=75?'pr':'ab'):'un')+'">'+(x.t?x.r+'%':'-')+'</span></div>'}).join('')+'</div>':'<div class="empty">No students were saved in this archive (it only holds the old ND I attendance).</div>')+
+  '<div class="sp"></div><button class="btn redo" data-act="archive-del" data-id="'+b.id+'" data-n="'+esc(b.department_name)+'">'+ic('trash',16)+'Delete this archive</button>';
+ shell(subHead('Archive'),html,'settings');
+ bindRq('.main .mini');
+};
+function archiveDelete(id,name){
+ confirmBox({title:'Delete this archive?',html:'The saved ND II class of <b>'+esc(name)+'</b> will be removed <b>permanently</b>. This cannot be undone.',ok:'Delete Archive',danger:true,requireText:'DELETE',onOk:async()=>{
+  closeModal();
+  const r=await act('Deleting…',()=>api('DELETE','archive_batches?id=eq.'+encodeURIComponent(id),undefined,{Prefer:'return=minimal'}));
+  if(r===undefined)return;
+  toast('Archive deleted');back();
+ }});
+}
+
 /* ===== Actions ===== */
 const ACT={
  back:()=>back(),
+ 'drawer-open':()=>openDrawer(),
+ 'drawer-close':()=>closeDrawer(),
+ 'promote-all':()=>promoteConfirm(null,false),
+ 'promote-one':t=>{const b=baseList()[+t.dataset.i];if(b)promoteConfirm(b.base,false)},
+ 'to-archive':()=>{closeModal();nav('archive')},
+ 'archive-open':t=>nav('archive-view',{id:t.dataset.id}),
+ 'archive-del':t=>archiveDelete(t.dataset.id,t.dataset.n),
+ 'ai-stu':async t=>{const d=t.dataset.d;if(!dept||dept.id!==d){if(!await switchDept(d))return}nav('student-profile',{id:t.dataset.id})},
  forgot:()=>nav('forgot'),
  'pick-base':t=>pickLevel(+t.dataset.i),
  'set-sem':t=>{view.sem=t.dataset.v;sset('zacast_sem',t.dataset.v);view.abs=null;render()},
