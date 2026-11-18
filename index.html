@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#004D2B">
 <title>ZACAST Attendance Management System</title>
 <meta name="description" content="ZACAST student attendance management system - Zamfara College of Arts, Science and Technology, Gusau.">
@@ -194,6 +194,7 @@ nav.nav button.on:before{content:"";position:absolute;top:-8px;width:6px;height:
 /* keyboard open (touch phones): free the space and leave room to scroll the field into view */
 body.kb nav.nav,body.kb .fab,body.kb .bar{display:none!important}
 body.kb .main{padding-bottom:45vh}
+body.kb .aibar{bottom:var(--kb,0px)}
 #print-area{display:none}
 .aic{display:flex;flex-direction:column;gap:10px;padding:4px 0 84px}
 .aib{max-width:88%;padding:10px 13px;border-radius:16px;font-size:13.5px;line-height:1.45;word-break:break-word}
@@ -235,7 +236,7 @@ const LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAYAAADNkKWqAA
 const BRAND='ZACAST', FULLNAME='Zamfara College of Arts, Science and Technology, Gusau';
 const SUBTITLE='Attendance Management System';
 const MOTTO='OH LORD INCREASE ME IN KNOWLEDGE';
-const VERSION='3.2.0';
+const VERSION='3.3.0';
 
 /* ===== Helpers ===== */
 const $=(s,r)=>(r||document).querySelector(s);
@@ -379,7 +380,10 @@ const sortCourseList=l=>l.slice().sort((a,b)=>String(a.code).localeCompare(Strin
 const sortedCourses=()=>sortCourseList(db.courses||[]);
 const getCourse=id=>(db.courses||[]).find(c=>c.id===id);
 function curCourse(){const c=view.course||'all';if(c!=='all'&&c!=='none'&&!getCourse(c))view.course='all';return view.course||'all'}
-const inScope=s=>{const c=curCourse();return c==='all'||(c==='none'?!s.courseId:s.courseId===c)};
+const curSem=()=>{const v=view.sem||sget('zacast_sem');return SEMS.indexOf(v)>-1?v:SEMS[1]};
+const inSem=s=>s.semester===curSem();
+const semBar=()=>'<div class="chips">'+SEMS.map(x=>'<button class="'+(curSem()===x?'on':'')+'" data-act="set-sem" data-v="'+x+'">'+x+'</button>').join('')+'</div>';
+const inScope=s=>{if(!inSem(s))return false;const c=curCourse();return c==='all'||(c==='none'?!s.courseId:s.courseId===c)};
 const scoped=()=>db.sessions.filter(inScope);
 const sortedScoped=()=>sortedSessions().filter(inScope);
 const cleanCode=c=>String(c).replace(/[^A-Za-z0-9]+/g,'_');
@@ -503,7 +507,7 @@ const courseBar=()=>{const c=curCourse(),lbl=c==='all'?'All courses':c==='none'?
  return '<button class="dbar" data-act="pick-course">'+ic('book',20)+'<span class="rw"><small>Course</small><b>'+esc(lbl)+'</b></span>'+ic('down')+'</button>'};
 function pickCourse(){
  const cur=curCourse(),list=sortedCourses();
- const cnt=id=>db.sessions.filter(s=>id==='all'?true:id==='none'?!s.courseId:s.courseId===id).length;
+ const cnt=id=>db.sessions.filter(inSem).filter(s=>id==='all'?true:id==='none'?!s.courseId:s.courseId===id).length;
  const opt=(id,t,sub)=>'<button class="dopt'+(cur===id?' on':'')+'" data-act="set-course" data-id="'+id+'"><span class="ico">'+ic('book')+'</span><span class="rw"><b>'+esc(t)+'</b><small>'+sub+'</small></span>'+(cur===id?ic('check'):'')+'</button>';
  modal('<h3>Select Course</h3><p>Courses of <b>'+esc(dept.name)+'</b>. Attendance, absent list and reports will show only the course you choose.</p>'+
   opt('all','All courses',cnt('all')+' attendance')+
@@ -528,7 +532,7 @@ function courseFieldHTML(s){
   (s?'<div class="h">Changing the course moves this attendance to that course.</div>':courseHintHTML(list))+'</div></div>';
 }
 function courseStats(id){
- const ss=db.sessions.filter(s=>s.courseId===id),done=ss.filter(s=>s.status==='Completed');
+ const ss=db.sessions.filter(s=>s.courseId===id&&inSem(s)),done=ss.filter(s=>s.status==='Completed');
  let sum=0,n=0;done.forEach(s=>{const t=sessionStats(s.id);if(t.recorded){sum+=t.rate;n++}});
  return {count:ss.length,done:done.length,avg:n?round1(sum/n):null};
 }
@@ -541,7 +545,7 @@ function courseSection(){
 }
 function byCourseHTML(id){
  const g={},keys=[];
- db.sessions.forEach(x=>{const v=(db.rec[x.id]||{})[id];if(!v)return;
+ db.sessions.filter(inSem).forEach(x=>{const v=(db.rec[x.id]||{})[id];if(!v)return;
   const k=x.courseId||(x.course?'t:'+x.course:'');if(!k)return;
   if(!g[k]){g[k]={label:(x.courseId?courseLabel(getCourse(x.courseId)):'')||x.course,p:0,t:0};keys.push(k)}
   g[k].t++;if(v==='present')g[k].p++});
@@ -653,10 +657,10 @@ async function boot(){
 
 /* ===== Dashboard ===== */
 S.dashboard=function(){
- const ss=sortedSessions(),last=ss[0],st=last?sessionStats(last.id):{present:0,absent:0,rate:0};
+ const ss=sortedSessions().filter(inSem),last=ss[0],st=last?sessionStats(last.id):{present:0,absent:0,rate:0};
  const n=db.students.length,sub=last?'Latest attendance':'No attendance yet';
  const first=cleanName(admin.fullName||admin.username)||'Admin';
- let html=deptBar()+
+ let html=deptBar()+semBar()+
  '<div class="welcome">'+avatarHTML()+'<div><h2 class="wl">Welcome, '+esc(first)+'</h2><p class="muted">Here is your '+esc(dept.name)+' overview</p></div></div>'+
  '<div class="grid2">'+
  '<div class="sc c-green"><div class="t">'+ic('users')+'Total Students</div><div><div class="v">'+n+'</div><div class="s">Registered students</div></div></div>'+
@@ -675,10 +679,20 @@ S.nodept=function(){
 };
 
 /* ===== Departments ===== */
+const baseList=()=>{const o=[];depts.forEach(d=>{let b=o.find(x=>x.base===d.base);if(!b){b={base:d.base,code:d.code,rows:[]};o.push(b)}b.rows.push(d)});return o};
 function pickDept(){
- modal('<h3>Select Department</h3><p>Choose the department and level (ND I = Year 1, ND II = Year 2).</p>'+
-  depts.map(d=>'<button class="dopt'+(dept&&d.id===dept.id?' on':'')+'" data-act="set-dept" data-id="'+d.id+'"><span class="ico">'+ic('building')+'</span><span class="rw"><b>'+esc(d.name)+'</b>'+(d.code?'<small>'+esc(d.code)+'</small>':'')+'</span>'+(dept&&d.id===dept.id?ic('check'):'')+'</button>').join('')+
+ const bl=baseList();
+ modal('<h3>Select Department</h3><p>Choose the department first, then the level.</p>'+
+  bl.map((b,i)=>{const on=dept&&dept.base===b.base;return '<button class="dopt'+(on?' on':'')+'" data-act="pick-base" data-i="'+i+'"><span class="ico">'+ic('building')+'</span><span class="rw"><b>'+esc(b.base)+'</b>'+(b.code?'<small>'+esc(b.code)+'</small>':'')+'</span>'+(on?ic('check'):'')+'</button>'}).join('')+
   '<div class="sp"></div><button class="btn out" data-act="to-depts">Manage Departments</button><div class="sp"></div><button class="btn gray" data-act="m-cancel" style="margin-top:8px">Close</button>');
+}
+function pickLevel(i){
+ const b=baseList()[i];if(!b)return;
+ const yr={'ND I':'Year 1','ND II':'Year 2'};
+ modal('<h3>'+esc(b.base)+'</h3><p>Select the level.</p>'+
+  LEVELS.map(l=>{const d=b.rows.find(x=>x.level===l);if(!d)return '';const on=dept&&dept.id===d.id;
+   return '<button class="dopt'+(on?' on':'')+'" data-act="set-dept" data-id="'+d.id+'"><span class="ico">'+ic('users')+'</span><span class="rw"><b>'+l+'</b><small>'+yr[l]+'</small></span>'+(on?ic('check'):'')+'</button>'}).join('')+
+  '<div class="sp"></div><button class="btn gray" data-act="pick-dept" style="margin-top:8px">Back</button>');
 }
 async function switchDept(id){
  const d=depts.find(x=>x.id===id);if(!d)return false;
@@ -696,10 +710,10 @@ S.departments=async function(){
  '<div class="fld"><label>Department name</label><input id="d-name" autocomplete="off" placeholder="e.g. Mathematics"></div>'+
  '<div class="fld"><label>Short code (optional)</label><input id="d-code" autocomplete="off" placeholder="e.g. MTH"></div>'+
  '<button class="btn" data-act="add-dept">'+ic('plus',18)+'Add Department</button></div>'+
- '<div class="sec"><h3>All departments ('+depts.length+')</h3></div>'+
- (depts.length?depts.map(d=>{
-   const cur=dept&&d.id===dept.id;
-   return '<div class="srow"><button class="ico" data-act="set-dept" data-id="'+d.id+'" aria-label="Open">'+ic('building')+'</button><button class="rw" data-act="set-dept" data-id="'+d.id+'" style="text-align:left"><b>'+esc(d.name)+(d.code?' <span style="color:var(--mut);font-weight:600">('+esc(d.code)+')</span>':'')+'</b><small>'+(counts[d.id]||0)+' student(s)'+(cur?' • <b style="color:var(--g)">Active</b>':'')+'</small></button>'+
+ '<div class="sec"><h3>All departments ('+baseList().length+')</h3></div>'+
+ (depts.length?baseList().map((b,i)=>{
+   const d=b.rows[0],cur=dept&&dept.base===b.base,tot=b.rows.reduce((n,x)=>n+(counts[x.id]||0),0);counts[d.id]=tot;
+   return '<div class="srow"><button class="ico" data-act="pick-base" data-i="'+i+'" aria-label="Open">'+ic('building')+'</button><button class="rw" data-act="pick-base" data-i="'+i+'" style="text-align:left"><b>'+esc(b.base)+(d.code?' <span style="color:var(--mut);font-weight:600">('+esc(d.code)+')</span>':'')+'</b><small>'+(counts[d.id]||0)+' student(s)'+(cur?' • <b style="color:var(--g)">Active</b>':'')+'</small></button>'+
    '<button class="ib" data-act="edit-dept" data-id="'+d.id+'" aria-label="Edit">'+ic('edit',17)+'</button>'+
    '<button class="ib" data-act="del-dept" data-id="'+d.id+'" style="background:#fee2e2;color:var(--bad)" aria-label="Delete">'+ic('trash',17)+'</button></div>';
   }).join(''):'<div class="empty">No departments yet. Add your first department above.</div>');
@@ -730,14 +744,14 @@ function editDept(id){
   '<div class="btns"><button class="btn gray" data-act="m-cancel">Cancel</button><button class="btn" data-act="m-ok">Save</button></div>');
 }
 function delDept(id){
- const d=depts.find(x=>x.id===id);if(!d)return;
- if(depts.length<2)return toast('Keep at least one department',true);
- confirmBox({title:'Delete '+d.name+'?',html:'This permanently deletes <b>'+esc(d.name)+'</b> together with <b>all its students and all its attendance records</b>. This cannot be undone.',ok:'Delete Department',danger:true,requireText:'DELETE',onOk:async()=>{
+ const d0=depts.find(x=>x.id===id);if(!d0)return;
+ if(baseList().length<2)return toast('Keep at least one department',true);
+ confirmBox({title:'Delete '+d0.base+'?',html:'This permanently deletes <b>'+esc(d0.base)+'</b> (ND I and ND II) together with <b>all its students, courses and attendance records</b>. This cannot be undone.',ok:'Delete Department',danger:true,requireText:'DELETE',onOk:async()=>{
   closeModal();
-  const r=await act('Deleting…',()=>api('DELETE','departments?id=eq.'+id,undefined,{Prefer:'return=minimal'}));
+  const r=await act('Deleting…',()=>api('DELETE','departments?name=eq.'+encodeURIComponent(d0.base),undefined,{Prefer:'return=minimal'}));
   if(r===undefined)return;
-  depts=depts.filter(x=>x.id!==id);
-  if(dept&&dept.id===id){await switchDept(depts[0].id)}
+  depts=depts.filter(x=>x.base!==d0.base);
+  if(dept&&dept.base===d0.base){const n=depts.find(x=>x.level==='ND II')||depts[0];await switchDept(n.id)}
   toast('Department deleted');S.departments();
  }});
 }
@@ -878,7 +892,7 @@ async function bulkAdd(){
 }
 S['student-profile']=function(p){
  const s=getStudent(p.id);if(!s){popRoute();return}
- const st=studentStats(s.id),hist=db.sessions.filter(x=>(db.rec[x.id]||{})[s.id]).map(x=>({r:db.rec[x.id][s.id],s:x}))
+ const st=studentStats(s.id,db.sessions.filter(inSem)),hist=db.sessions.filter(x=>inSem(x)&&(db.rec[x.id]||{})[s.id]).map(x=>({r:db.rec[x.id][s.id],s:x}))
   .sort((a,b)=>((b.s.date||'')+(b.s.time||'')).localeCompare((a.s.date||'')+(a.s.time||'')));
  const html='<div class="card prof"><div class="ring">'+s.serial+'</div><h2>'+esc(s.name)+'</h2><p>Admission No: <b>'+esc(s.admNo)+'</b></p><p>Serial No: <b>'+s.serial+'</b></p><p>'+esc(dept.name)+'</p></div>'+
  '<div class="three"><div class="mt p"><b>'+st.present+'</b><span>Present</span></div><div class="mt a"><b>'+st.absent+'</b><span>Absent</span></div><div class="mt" style="background:#FEF3C7;border-color:#fde68a;color:#92400e"><b>'+st.rate+'%</b><span>Rate</span></div></div>'+
@@ -906,7 +920,7 @@ S.attendance=function(){
  const l=ss.filter(s=>view.sf==='all'||(view.sf==='prog'?s.status!=='Completed':s.status==='Completed'));
  const chip=(v,t,c)=>'<button class="'+(view.sf===v?'on':'')+'" data-act="sfilter" data-v="'+v+'">'+t+' ('+c+')</button>';
  shell(mainHead('Attendance Sessions','<button class="chip ab" data-act="nav" data-n="absent" style="padding:7px 12px;font-size:11.5px;display:flex;gap:6px;align-items:center">'+ic('userx',15)+'Absent List</button>'),
-  deptBar()+courseBar()+'<div class="chips">'+chip('all','All',ss.length)+chip('prog','In Progress',ip)+chip('done','Completed',cp)+'</div>'+
+  deptBar()+semBar()+courseBar()+'<div class="chips">'+chip('all','All',ss.length)+chip('prog','In Progress',ip)+chip('done','Completed',cp)+'</div>'+
   (l.length?l.map(sessionCard).join(''):'<div class="empty">No attendance found.<br>Create a new attendance to begin.</div>'),
   'attendance','<button class="fab" data-act="nav" data-n="session-form">'+ic('plus',18)+'New Attendance</button>');
 };
@@ -914,9 +928,9 @@ S['session-form']=function(p){
  const s=p.id?getSession(p.id):null;if(p.id&&!s){popRoute();return}
  const d=s?s.date:todayStr(),t=s?s.time:nowTime(),dy=s?s.day:dayOf(d);
  const html=(s?'<p class="muted">Department: <b>'+esc(dept.name)+'</b></p>':
-  '<div class="fld"><label>Department</label><select id="s-dept">'+depts.map(x=>'<option value="'+x.id+'"'+(x.id===dept.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select><div class="h">Choose the department you are taking attendance for.</div></div>')+
+  '<div class="two"><div class="fld"><label>Department</label><select id="s-base">'+baseList().map(b=>'<option'+(b.base===dept.base?' selected':'')+'>'+esc(b.base)+'</option>').join('')+'</select></div><div class="fld"><label>Level</label><select id="s-lvl">'+LEVELS.map(l=>'<option'+(l===dept.level?' selected':'')+'>'+l+'</option>').join('')+'</select></div></div>')+
  courseFieldHTML(s)+
- '<div class="fld"><label>Semester</label><select id="s-sem">'+SEMS.map(x=>'<option'+((s?s.semester:SEMS[0])===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'+
+ '<div class="fld"><label>Semester</label><select id="s-sem">'+SEMS.map(x=>'<option'+((s?s.semester:curSem())===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'+
  '<div class="two"><div class="fld"><label>Date</label><input id="s-date" type="date" value="'+d+'"></div>'+
  '<div class="fld"><label>Time</label><input id="s-time" type="time" value="'+t+'"></div></div>'+
  '<div class="fld"><label>Day</label><select id="s-day">'+DAYS.map(x=>'<option'+(dy===x?' selected':'')+'>'+x+'</option>').join('')+'</select><div class="h">The day is filled in automatically from the date. You can change it if needed.</div></div>'+
@@ -924,15 +938,16 @@ S['session-form']=function(p){
  (s?'<div class="sp"></div><button class="btn redo" data-act="del-session" data-id="'+s.id+'" style="margin-top:12px">'+ic('trash',16)+'Delete This Attendance</button>':'<p class="muted" style="text-align:center;margin-top:14px">After creating, you can mark every student Present or Absent.</p>');
  shell(subHead(s?'Edit Attendance':'New Attendance'),html,null);
  $('#s-date').addEventListener('change',()=>{const v=$('#s-date').value;if(v)$('#s-day').value=dayOf(v)});
- const sd=$('#s-dept');
- if(sd)sd.addEventListener('change',async function(){
-  const did=this.value;let list=[];
+ const onD=async()=>{
+  const did=sDeptId();let list=[];
   if(did===dept.id)list=sortedCourses();
   else{try{list=sortCourseList((await api('GET','courses?select=*&department_id=eq.'+did+'&order=code.asc')||[]).map(mapCou))}catch(e){list=[]}}
-  if(!$('#s-course')||$('#s-dept').value!==did)return;
+  if(!$('#s-course')||sDeptId()!==did)return;
   $('#s-course').innerHTML=courseOptsHTML(list,'',null);$('#s-chint').innerHTML=courseHintHTML(list);
- });
+ };
+ if($('#s-base')){$('#s-base').addEventListener('change',onD);$('#s-lvl').addEventListener('change',onD)}
 };
+const sDeptId=()=>{const b=$('#s-base'),l=$('#s-lvl');if(!b)return dept.id;const d=depts.find(x=>x.base===b.value&&x.level===l.value);return d?d.id:dept.id};
 async function saveSession(id){
  const date=$('#s-date').value,time=$('#s-time').value;
  if(!date)return toast('Select the date',true);
@@ -947,7 +962,7 @@ async function saveSession(id){
   if(!r||!r.length)return;
   Object.assign(getSession(id),mapSes(r[0]));toast('Attendance updated');back();return;
  }
- const did=$('#s-dept')?$('#s-dept').value:dept.id;
+ const did=sDeptId();
  if(did!==dept.id){if(!await switchDept(did))return}
  const cc=getCourse(cid);if(!cc)return toast('Select the course first',true);
  o.course=courseLabel(cc);o.course_id=cid;
@@ -1074,7 +1089,7 @@ S.absent=function(){
   const m=sessionMap(view.abs);
   rows=sortedStudents().filter(x=>m[x.id]==='absent').map(x=>stuRow(x,'<span class="chip ab">Absent</span>'));
  }
- shell(subHead('Absent Students'),'<p class="muted">Department: <b>'+esc(dept.name)+'</b></p>'+courseBar()+'<div class="fld"><select id="abs">'+opts+'</select></div>'+(rows.length?'<p class="muted">'+rows.length+' student(s)</p>'+rsearch()+rows.join(''):'<div class="empty">No absences recorded for this selection.</div>'),'attendance');
+ shell(subHead('Absent Students'),'<p class="muted">Department: <b>'+esc(dept.name)+'</b></p>'+semBar()+courseBar()+'<div class="fld"><select id="abs">'+opts+'</select></div>'+(rows.length?'<p class="muted">'+rows.length+' student(s)</p>'+rsearch()+rows.join(''):'<div class="empty">No absences recorded for this selection.</div>'),'attendance');
  $('#abs').addEventListener('change',function(){view.abs=this.value;S.absent()});bindRq('.main .row');
 };
 
@@ -1118,7 +1133,7 @@ const repStudents=()=>({file:'ZACAST_'+deptCode()+'_Students',title:'Student Lis
 let curRep=null;
 function eligData(){
  const e=view.el=view.el||{th:parseFloat(sget('zacast_th'))||75,sem:'all',course:'all',list:'elig'};
- let ss=db.sessions.filter(x=>x.status==='Completed');
+ e.sem=curSem();let ss=db.sessions.filter(x=>x.status==='Completed');
  if(e.sem!=='all')ss=ss.filter(x=>x.semester===e.sem);
  if(e.course!=='all')ss=ss.filter(x=>(x.course||'')===e.course);
  const rows=sortedStudents().map(x=>{let p=0;ss.forEach(y=>{if((db.rec[y.id]||{})[x.id]==='present')p++});
@@ -1172,7 +1187,7 @@ S.reports=function(){
   const ch=(v,t,c)=>'<button class="'+(e.list===v?'on':'')+'" data-act="elist" data-v="'+v+'">'+t+' ('+c+')</button>';
   body='<div class="card"><b>Who can write the test / exam?</b><p class="muted" style="margin:4px 0 12px">Students whose attendance is below the minimum are not allowed.</p>'+
    '<div class="two"><div class="fld"><label>Minimum attendance (%)</label><input id="el-th" type="number" inputmode="decimal" min="0" max="100" value="'+e.th+'"></div>'+
-   '<div class="fld"><label>Semester</label><select id="el-sem"><option value="all">All</option>'+SEMS.map(x=>'<option'+(e.sem===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div></div>'+
+   '<div class="fld"><label>Semester</label><input value="'+esc(curSem())+'" disabled></div></div>'+
    '<div class="fld" style="margin-bottom:0"><label>Course</label><select id="el-course"><option value="all">All courses</option>'+courses.map(x=>'<option'+(e.course===x?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></div></div><div class="sp"></div><div class="sp"></div>'+
    (d.ss.length?'<p class="muted" style="margin-top:12px">Based on <b>'+d.ss.length+'</b> completed attendance(s). Absent or unmarked counts as not present.</p>':'<div class="empty" style="margin-top:12px">No completed attendance yet. Finish at least one attendance first.</div>')+
    '<div class="metrics"><div class="mt p"><span>● Eligible</span><b>'+d.yes.length+'</b></div><div class="mt a"><span>● Not eligible</span><b>'+d.no.length+'</b></div></div>'+
@@ -1182,7 +1197,7 @@ S.reports=function(){
   curRep=repSummary();
   body=(stu.length?rsearch()+'<div class="card">'+stu.map(x=>{const t=studentStats(x.id,ss);return '<div class="mini"><span class="sn">'+x.serial+'</span><span class="rw"><b>'+esc(x.name)+'</b><small>Adm No: '+esc(x.admNo)+' • P: '+t.present+' • A: '+t.absent+'</small></span><span class="chip '+(t.total?(t.rate>=75?'pr':'ab'):'un')+'">'+(t.total?t.rate+'%':'-')+'</span></div>'}).join('')+'</div><div class="sp"></div><div class="sp"></div>'+exportBtns():'<div class="empty">No students yet.</div>');
  }
- shell(mainHead('Reports'),deptBar()+(r.tab==='elig'?'':courseBar())+tabs+body,'reports');
+ shell(mainHead('Reports'),deptBar()+semBar()+(r.tab==='elig'?'':courseBar())+tabs+body,'reports');
  bindRq('.main .mini');
  const rsq=$('#rsq');if(rsq)rsq.addEventListener('input',function(){
   const v=this.value;clearTimeout(view.rqt);
@@ -1191,7 +1206,6 @@ S.reports=function(){
  const sel=$('#rsel');if(sel)sel.addEventListener('change',function(){if(r.tab==='session')r.sid=this.value;else r.stid=this.value;S.reports()});
  if(r.tab==='elig'){const e=view.el;
   $('#el-th').addEventListener('change',function(){let v=parseFloat(this.value);if(!(v>=0))v=75;if(v>100)v=100;e.th=v;sset('zacast_th',String(v));S.reports()});
-  $('#el-sem').addEventListener('change',function(){e.sem=this.value;S.reports()});
   $('#el-course').addEventListener('change',function(){e.course=this.value;S.reports()});
  }
 };
@@ -1292,10 +1306,10 @@ const AI_CHIPS=['Find ND II student','Export all students to PDF','How many stud
 const AI_HELP='I understand English and Hausa. Try:<br>• <b>Find ND II student</b> / <b>Find Aminu</b><br>• <b>Export all students to PDF</b> (or Excel)<br>• <b>Mark all students in Computer Science ND I present</b><br>• <b>Add student Aminu Sani, 36201</b><br>• <b>How many students in ND I?</b><br>• <b>Delete all students</b><br>• <b>Open reports</b> / <b>Open ND I</b><br>Hausa: <i>nemo dalibai ND II</i>, <i>fitar da dukkan dalibai PDF</i>, <i>yi alama duka sun halarci</i>, <i>goge duka dalibai</i>, <i>nawa ne dalibai</i>.';
 S.ai=function(){
  if(!AIH.msgs.length)AIH.msgs.push({r:'bot',h:'<b>Welcome!</b> What can I help you with?<div class="aichips">'+AI_CHIPS.map(x=>'<button data-act="ai-chip" data-t="'+x+'">'+x+'</button>').join('')+'</div>'});
- shell(mainHead('AI Mode'),'<p class="muted" id="aiw" style="margin:0 0 8px"></p><div id="aic" class="aic"></div>','ai',
+ shell(mainHead('AI Mode','<button class="ib" data-act="ai-clear" aria-label="Clear chat">'+ic('trash',18)+'</button><button data-act="nav" data-n="profile" aria-label="Profile">'+avatarHTML()+'</button>'),'<p class="muted" id="aiw" style="margin:0 0 8px"></p><div id="aic" class="aic"></div>','ai',
   '<form id="aif" class="aibar" autocomplete="off"><input id="aiq" placeholder="Type what you want (English or Hausa)…" autocomplete="off"><button class="aisend" aria-label="Send">'+ic('chev',20)+'</button></form>');
  aiPaint();
- $('#aif').addEventListener('submit',e=>{e.preventDefault();const i=$('#aiq'),v=i.value.trim();if(!v)return;i.value='';aiRun(v)});
+ $('#aif').addEventListener('submit',e=>{e.preventDefault();const i=$('#aiq'),v=i.value.trim();if(!v)return;i.value='';i.focus();aiRun(v)});
 };
 function aiLevel(t){
  if(/ nd ?(ii|2|two|biyu) | year ?(2|two|ii) | shekara ta (2|biyu) /.test(t))return 'ND II';
@@ -1327,6 +1341,7 @@ async function aiRun(raw){
 }
 async function aiHandle(raw,t){
  const has=r=>r.test(t);
+ if(has(/ (clear|delete|erase|goge|share|cire) /)&&has(/ (chat|chart|conversation|conversations|messages|tattaunawa|hira) /)){AIH.msgs=[];AIH.pending=null;S.ai();return}
  if(AIH.pending){
   const p=AIH.pending;
   if(has(/ (cancel|stop|no|babu|soke) /)){AIH.pending=null;return aiSay('bot','Okay, cancelled.')}
@@ -1410,8 +1425,8 @@ async function aiMark(status,c){
  confirmBox({title:'Mark all '+status+'?',text:'All '+n+' students of '+dept.name+' will be marked '+status+' for '+courseLabel(c)+' today. Continue?',ok:'Yes, mark all',onOk:async()=>{
   closeModal();
   const s=await act('Marking…',async()=>{
-   let x=db.sessions.find(y=>y.courseId===c.id&&y.date===todayStr()&&y.status!=='Completed');
-   if(!x){const r=await api('POST','attendance_sessions',[{department_id:dept.id,course:courseLabel(c),course_id:c.id,semester:SEMS[0],date:todayStr(),time:nowTime(),day:dayOf(todayStr())}],{Prefer:'return=representation'});x=mapSes(r[0]);db.sessions.push(x)}
+   let x=db.sessions.find(y=>y.courseId===c.id&&y.date===todayStr()&&y.semester===curSem()&&y.status!=='Completed');
+   if(!x){const r=await api('POST','attendance_sessions',[{department_id:dept.id,course:courseLabel(c),course_id:c.id,semester:curSem(),date:todayStr(),time:nowTime(),day:dayOf(todayStr())}],{Prefer:'return=representation'});x=mapSes(r[0]);db.sessions.push(x)}
    const m=db.rec[x.id]||(db.rec[x.id]={});
    await upsertRecs(db.students.map(st=>{m[st.id]=status;return {department_id:dept.id,session_id:x.id,student_id:st.id,status:status}}));
    return x;
@@ -1425,6 +1440,9 @@ async function aiMark(status,c){
 const ACT={
  back:()=>back(),
  forgot:()=>nav('forgot'),
+ 'pick-base':t=>pickLevel(+t.dataset.i),
+ 'set-sem':t=>{view.sem=t.dataset.v;sset('zacast_sem',t.dataset.v);view.abs=null;render()},
+ 'ai-clear':()=>{AIH.msgs=[];AIH.pending=null;S.ai();toast('Chat cleared')},
  'ai-chip':t=>aiRun(t.dataset.t),
  tab:t=>tab(t.dataset.n),
  nav:t=>nav(t.dataset.n,t.dataset.id?{id:t.dataset.id}:{}),
@@ -1451,7 +1469,7 @@ const ACT={
  'pick-course':()=>pickCourse(),
  'set-course':t=>{view.course=t.dataset.id;render()},
  'to-courses':()=>{closeModal();nav('courses')},
- 'go-courses':async()=>{const sd=$('#s-dept');if(sd&&sd.value!==dept.id&&!await switchDept(sd.value))return;nav('courses')},
+ 'go-courses':async()=>{const sd=sDeptId();if(sd!==dept.id&&!await switchDept(sd))return;nav('courses')},
  'add-course':()=>addCourse(),
  'edit-course':t=>editCourse(t.dataset.id),
  'del-course':t=>delCourse(t.dataset.id),
@@ -1516,11 +1534,17 @@ document.addEventListener('click',e=>{
  const vv=window.visualViewport;
  const touch=()=>{try{return window.matchMedia('(pointer:coarse)').matches}catch(e){return false}};
  const isField=el=>!!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)&&!/^(checkbox|radio|file|button|submit|hidden)$/.test(el.type||'');
- function reveal(){
-  const el=document.activeElement;if(!isField(el)||!el.scrollIntoView)return;
-  try{el.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){try{el.scrollIntoView()}catch(e2){}}
- }
- function fitModal(){
+ function kbh(){return vv?Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop)):0}
+  function setKb(){document.documentElement.style.setProperty('--kb',kbh()+'px')}
+  function reveal(){
+   const el=document.activeElement;if(!isField(el))return;
+   if(!vv){try{el.scrollIntoView({block:'center'})}catch(e){}return}
+   if(el.closest('.aibar')||el.closest('#modal-root'))return;
+   const r=el.getBoundingClientRect(),bottom=vv.offsetTop+vv.height-24,top=vv.offsetTop+70;
+   if(r.bottom>bottom)window.scrollBy({top:r.bottom-bottom,behavior:'smooth'});
+   else if(r.top<top)window.scrollBy({top:r.top-top,behavior:'smooth'});
+  }
+  function fitModal(){
   const ov=document.querySelector('#modal-root .ov');if(!ov||!vv)return;
   const mb=ov.firstChild,open=document.body.classList.contains('kb');
   if(open){ov.style.top=vv.offsetTop+'px';ov.style.bottom='auto';ov.style.height=vv.height+'px';if(mb&&mb.style)mb.style.maxHeight=Math.max(vv.height-24,160)+'px'}
@@ -1529,12 +1553,12 @@ document.addEventListener('click',e=>{
  document.addEventListener('focusin',e=>{
   if(!isField(e.target))return;
   if(touch())document.body.classList.add('kb');
-  fitModal();[60,320,650].forEach(ms=>setTimeout(reveal,ms));
+  setKb();fitModal();[60,320,650].forEach(ms=>setTimeout(()=>{setKb();reveal()},ms));
  });
  document.addEventListener('focusout',()=>{
-  setTimeout(()=>{if(!isField(document.activeElement)){document.body.classList.remove('kb');fitModal()}},200);
+  setTimeout(()=>{if(!isField(document.activeElement)){document.body.classList.remove('kb');setKb();fitModal()}},200);
  });
- if(vv){vv.addEventListener('resize',()=>{fitModal();reveal()});vv.addEventListener('scroll',fitModal)}
+ if(vv){vv.addEventListener('resize',()=>{setKb();fitModal();reveal()});vv.addEventListener('scroll',()=>{setKb();fitModal()})}
 })();
 
 window.__zacast={get state(){return {dept:dept,depts:depts,db:db,admin:admin}}};

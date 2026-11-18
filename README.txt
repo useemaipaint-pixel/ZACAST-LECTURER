@@ -1,4 +1,4 @@
-ZACAST ATTENDANCE MANAGEMENT SYSTEM  (v3.2 - online)
+ZACAST ATTENDANCE MANAGEMENT SYSTEM  (v3.3 - online)
 Zamfara College of Arts, Science and Technology, Gusau
 
 NEW INSTALLATION
@@ -45,3 +45,11 @@ NEW INSTALLATION: run supabase_setup.sql, then supabase_update_courses.sql, then
 - SEARCH: every student list/picker (Reports, Absent list, Exam list...) has a search box.
 - FORGOT PASSWORD: on the login page. Enter the last 3 characters of your password.
   The username and password boxes are now empty until you type.
+
+UPDATE v3.3
+- Run supabase_update_semester.sql ONCE (moves existing attendance to Second Semester).
+- Departments are listed once; tap a department, then choose ND I or ND II.
+- Semester bar (First / Second Semester): attendance, absent list, reports, exam list
+  and course averages are separate for each semester.
+- AI Mode: trash button (top right) or type "clear chat" to delete the conversation.
+- Keyboard no longer hides what you type.
