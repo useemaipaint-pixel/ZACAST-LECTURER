@@ -195,6 +195,16 @@ nav.nav button.on:before{content:"";position:absolute;top:-8px;width:6px;height:
 body.kb nav.nav,body.kb .fab,body.kb .bar{display:none!important}
 body.kb .main{padding-bottom:45vh}
 #print-area{display:none}
+.aic{display:flex;flex-direction:column;gap:10px;padding:4px 0 84px}
+.aib{max-width:88%;padding:10px 13px;border-radius:16px;font-size:13.5px;line-height:1.45;word-break:break-word}
+.aib.bot{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+.aib.me{background:var(--g);color:#fff;align-self:flex-end;border-bottom-right-radius:5px}
+.aib .row{margin:8px 0 0;width:100%}
+.aichips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.aichips button{background:#e6f4ec;color:var(--g);font-weight:600;font-size:12px;padding:7px 11px;border-radius:99px}
+.aibar{position:fixed;left:50%;transform:translateX(-50%);width:100%;max-width:480px;bottom:var(--navh);z-index:50;background:#fff;border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px}
+.aibar input{flex:1;min-width:0;border:1px solid #cbd5e1;border-radius:99px;padding:12px 16px;font-size:14px;outline:0}
+.aisend{flex:none;width:46px;height:46px;border-radius:50%;background:var(--g);color:#fff;display:flex;align-items:center;justify-content:center}
 @media print{
  body.printing #app,body.printing #toasts,body.printing #modal-root,body.printing #busy{display:none!important}
  body.printing #print-area{display:block!important;font-family:Arial,sans-serif;color:#000;padding:8mm}
@@ -225,7 +235,7 @@ const LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAYAAADNkKWqAA
 const BRAND='ZACAST', FULLNAME='Zamfara College of Arts, Science and Technology, Gusau';
 const SUBTITLE='Attendance Management System';
 const MOTTO='OH LORD INCREASE ME IN KNOWLEDGE';
-const VERSION='3.0.0';
+const VERSION='3.2.0';
 
 /* ===== Helpers ===== */
 const $=(s,r)=>(r||document).querySelector(s);
@@ -276,6 +286,7 @@ book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2
 camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
 building:'<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>'
 };
+IC.spark='<path d="M12 3l1.9 5.6 5.6 1.9-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/><path d="M19 3v4M17 5h4"/>';
 const ic=(n,s)=>'<svg class="ic" viewBox="0 0 24 24"'+(s?' style="width:'+s+'px;height:'+s+'px"':'')+'>'+IC[n]+'</svg>';
 
 /* ===== Local storage (with in-memory fallback) ===== */
@@ -335,7 +346,10 @@ const mapCou=r=>({id:r.id,code:r.code||'',title:r.title||''});
 let coursesOK=true;
 function setAdmin(a){admin={username:a.username||'',fullName:a.full_name||'',avatar:a.avatar||''}}
 
-async function loadDepts(){depts=await api('GET','departments?select=*&order=created_at.asc')||[]}
+const LEVELS=['ND I','ND II'];
+const mapDept=d=>Object.assign({},d,{level:d.level||'ND II',base:d.name,name:d.name+' '+(d.level||'ND II')});
+const sortDepts=()=>depts.sort((a,b)=>a.base.localeCompare(b.base)||LEVELS.indexOf(a.level)-LEVELS.indexOf(b.level));
+async function loadDepts(){depts=(await api('GET','departments?select=*&order=created_at.asc')||[]).map(mapDept);sortDepts()}
 async function loadDeptData(id){
  const [st,se,re,co]=await Promise.all([
   selectAll('students?select=id,serial,name,adm_no&department_id=eq.'+id+'&order=serial.asc'),
@@ -372,6 +386,9 @@ const cleanCode=c=>String(c).replace(/[^A-Za-z0-9]+/g,'_');
 const courseCode=s=>{const c=s&&s.courseId?getCourse(s.courseId):null;return c?cleanCode(c.code):''};
 const courseTag=()=>{const c=curCourse(),o=(c!=='all'&&c!=='none')?getCourse(c):null;return o?'_'+cleanCode(o.code):''};
 const courseMeta=()=>{const c=curCourse();return c==='all'?[]:['Course: '+(c==='none'?'Not linked to a course':courseLabel(getCourse(c)))]};
+const matchText=(t,q)=>{q=String(q||'').trim().toLowerCase();if(!q)return true;t=String(t).toLowerCase();return q.split(/\s+/).every(w=>t.indexOf(w)>-1)};
+const rsearch=()=>'<div class="search">'+ic('search')+'<input id="rq" placeholder="Search name, admission no. or serial no." autocomplete="off"></div>';
+function bindRq(sel){const i=$('#rq');if(!i)return;i.addEventListener('input',()=>{document.querySelectorAll(sel).forEach(el=>{el.style.display=matchText(el.textContent,i.value)?'':'none'})})}
 const sessionMap=sid=>db.rec[sid]||{};
 function sessionStats(sid){
  const m=sessionMap(sid);let p=0,a=0;
@@ -390,7 +407,7 @@ function matches(s,q){
 }
 const admTaken=(adm,exceptId)=>{const a=String(adm).trim().toLowerCase();return db.students.some(s=>s.id!==exceptId&&String(s.admNo).trim().toLowerCase()===a)};
 const serialTaken=(n,exceptId)=>db.students.some(s=>s.id!==exceptId&&s.serial===n);
-const deptCode=()=>(dept&&(dept.code||dept.name)||'DEPT').replace(/[^A-Za-z0-9]+/g,'_');
+const deptCode=()=>(dept&&((dept.code||dept.base||dept.name)+'_'+dept.level)||'DEPT').replace(/[^A-Za-z0-9]+/g,'_');
 
 /* ===== Sound / vibration / toast / busy ===== */
 let ac=null;
@@ -414,6 +431,7 @@ async function work(msg,fn){busy(msg);try{return await fn()}finally{busy(false)}
 function friendly(e){
  if(!e)return 'Something went wrong';
  if(e.code==='23505')return 'That serial number or admission number is already used in this department.';
+ if(/'level' column/.test(e.message||''))return 'Please run supabase_update_levels.sql in Supabase first (see README).';
  if(e.code==='PGRST205'||e.code==='42P01')return 'Database tables not found. Run supabase_setup.sql in Supabase first.';
  return e.message||'Something went wrong';
 }
@@ -444,7 +462,7 @@ function confirmBox(o){
 const app=$('#app');
 let route={n:'splash',p:{}},stack=[],histOK=true;
 const view={};
-const NEEDS={dashboard:1,students:1,attendance:1,reports:1,absent:1,'student-form':1,'student-profile':1,'session-form':1,session:1,manage:1,export:1,courses:1};
+const NEEDS={dashboard:1,students:1,attendance:1,reports:1,absent:1,'student-form':1,'student-profile':1,'session-form':1,session:1,manage:1,export:1,courses:1,ai:1};
 function nav(n,p){
  stack.push(route);route={n:n,p:p||{}};
  if(histOK){try{history.pushState({d:stack.length},'')}catch(e){histOK=false}}
@@ -466,7 +484,7 @@ function avatarHTML(extra){
  return '<span class="avatar"'+(extra?' style="'+extra+'"':'')+'>'+(admin.avatar?'<img src="'+esc(admin.avatar)+'" alt="">':esc(ini))+'</span>';
 }
 function navHTML(cur){
- const items=[['dashboard','Dashboard','grid'],['students','Students','users'],['attendance','Attendance','clip'],['reports','Reports','chart'],['settings','Settings','gear']];
+ const items=[['dashboard','Dashboard','grid'],['students','Students','users'],['attendance','Attendance','clip'],['ai','AI','spark'],['reports','Reports','chart'],['settings','Settings','gear']];
  return '<nav class="nav">'+items.map(i=>'<button data-act="tab" data-n="'+i[0]+'" aria-label="'+i[1]+'" class="'+(cur===i[0]?'on':'')+'">'+ic(i[2])+'<span>'+i[1]+'</span></button>').join('')+'</nav>';
 }
 function mainHead(sub,right){
@@ -564,9 +582,10 @@ S.splash=function(){
 S.login=function(){
  app.innerHTML='<div class="lg"><div class="lg-top"><img src="'+LOGO+'" alt=""><h1>'+BRAND+'</h1><p>ATTENDANCE MANAGEMENT SYSTEM</p></div>'+
  '<form class="lg-card" id="lf" autocomplete="off"><h2>Login</h2><p class="muted">Enter your credentials to continue</p>'+
- '<label for="lu">Username</label><div class="inp">'+ic('user')+'<input id="lu" autocomplete="username" autocapitalize="none" value="'+esc(sget('zacast_lastuser')||'admin')+'"></div>'+
- '<label for="lp">Password</label><div class="inp">'+ic('lock')+'<input id="lp" type="password" autocomplete="current-password" placeholder="Enter password"><button type="button" data-act="eye" aria-label="Show password" style="color:#94a3b8">'+ic('eye')+'</button></div>'+
- '<button class="btn" type="submit" style="margin-top:24px">Login</button>'+
+ '<label for="lu">Username</label><div class="inp">'+ic('user')+'<input id="lu" name="zc_user_'+Date.now()+'" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Enter username"></div>'+
+ '<label for="lp">Password</label><div class="inp">'+ic('lock')+'<input id="lp" type="password" autocomplete="new-password" placeholder="Enter password"><button type="button" data-act="eye" aria-label="Show password" style="color:#94a3b8">'+ic('eye')+'</button></div>'+
+ '<div style="text-align:right;margin-top:10px"><button type="button" class="lnk" data-act="forgot">Forgot password?</button></div>'+
+ '<button class="btn" type="submit" style="margin-top:14px">Login</button>'+
  '<div class="lg-foot"><div class="motto" style="color:var(--g);margin-bottom:12px">'+MOTTO+'</div><b>'+ic('shield',16)+'Only authorized admin can access</b><small>'+esc(FULLNAME)+'</small></div></form></div>';
  $('#lf').addEventListener('submit',async e=>{
   e.preventDefault();
@@ -580,13 +599,33 @@ S.login=function(){
  });
 };
 
+S.forgot=function(){
+ const fl=(id,ic2,ph,ty,extra)=>'<div class="inp" style="margin-bottom:12px">'+ic(ic2)+'<input id="'+id+'" type="'+ty+'" autocomplete="off" placeholder="'+ph+'"'+(extra||'')+'></div>';
+ app.innerHTML='<div class="lg"><div class="lg-top"><img src="'+LOGO+'" alt=""><h1>'+BRAND+'</h1><p>RESET PASSWORD</p></div>'+
+ '<form class="lg-card" id="ff" autocomplete="off"><h2>Forgot password</h2><p class="muted">Type the <b>last 3 characters</b> of your current password, then choose a new password.</p>'+
+ fl('fp0','key','Last 3 characters of password','text',' maxlength="3" autocapitalize="none"')+fl('fp1','lock','New password (min. 6 characters)','password')+fl('fp2','lock','Confirm new password','password')+
+ '<button class="btn" type="submit" style="margin-top:8px">Reset Password</button>'+
+ '<div style="text-align:center;margin-top:16px"><button type="button" class="lnk" data-act="back">Back to login</button></div></form></div>';
+ $('#ff').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const a=$('#fp0').value,b=$('#fp1').value,c=$('#fp2').value;
+  if(a.length!==3)return toast('Enter exactly the last 3 characters',true);
+  if(b.length<6)return toast('New password must be at least 6 characters',true);
+  if(b!==c)return toast('New passwords do not match',true);
+  const r=await act('Resetting…',()=>rpc('admin_reset_password',{p_last3:a,p_new:b}));
+  if(!r)return;
+  if(!r.ok)return toast(r.error||'Could not reset password',true);
+  stack=[];route={n:'login',p:{}};render();toast('Password changed. Please login with the new password.');
+ });
+};
+
 /* ===== Boot / session ===== */
 async function startApp(){
  const ok=await act('Loading…',async()=>{
   await loadDepts();
   if(depts.length){
    const saved=sget('zacast_dept');
-   dept=depts.find(d=>d.id===saved)||depts[0];
+   dept=depts.find(d=>d.id===saved)||depts.find(d=>d.level==='ND II')||depts[0];
    await loadDeptData(dept.id);
   }else{dept=null;db={students:[],sessions:[],rec:{},courses:[]}}
   return true;
@@ -637,7 +676,7 @@ S.nodept=function(){
 
 /* ===== Departments ===== */
 function pickDept(){
- modal('<h3>Select Department</h3><p>Choose the department you want to work with.</p>'+
+ modal('<h3>Select Department</h3><p>Choose the department and level (ND I = Year 1, ND II = Year 2).</p>'+
   depts.map(d=>'<button class="dopt'+(dept&&d.id===dept.id?' on':'')+'" data-act="set-dept" data-id="'+d.id+'"><span class="ico">'+ic('building')+'</span><span class="rw"><b>'+esc(d.name)+'</b>'+(d.code?'<small>'+esc(d.code)+'</small>':'')+'</span>'+(dept&&d.id===dept.id?ic('check'):'')+'</button>').join('')+
   '<div class="sp"></div><button class="btn out" data-act="to-depts">Manage Departments</button><div class="sp"></div><button class="btn gray" data-act="m-cancel" style="margin-top:8px">Close</button>');
 }
@@ -645,7 +684,7 @@ async function switchDept(id){
  const d=depts.find(x=>x.id===id);if(!d)return false;
  const ok=await act('Loading '+d.name+'…',()=>loadDeptData(d.id).then(()=>true));
  if(!ok)return false;
- dept=d;sset('zacast_dept',d.id);view.rep=null;view.abs=null;view.sf='all';view.course='all';if(view.el){view.el.course='all';view.el.sem='all'}
+ dept=d;sset('zacast_dept',d.id);view.rep=null;view.rq='';view.abs=null;view.sf='all';view.course='all';if(view.el){view.el.course='all';view.el.sem='all'}
  return true;
 }
 S.departments=async function(){
@@ -653,7 +692,7 @@ S.departments=async function(){
  shell(subHead('Departments'),'<div class="empty"><div class="spin" style="margin:0 auto"></div></div>','settings');
  try{const rows=await selectAll('students?select=department_id&order=id.asc');rows.forEach(r=>{counts[r.department_id]=(counts[r.department_id]||0)+1})}catch(e){if(route.n==='departments')fail(e)}
  if(route.n!=='departments')return;
- const html='<div class="card" style="margin-bottom:14px"><b>Add a department</b><p class="muted" style="margin:4px 0 12px">Every department has its own students and its own attendance records.</p>'+
+ const html='<div class="card" style="margin-bottom:14px"><b>Add a department</b><p class="muted" style="margin:4px 0 12px">Every department has two levels: <b>ND I</b> (Year 1) and <b>ND II</b> (Year 2). Each level has its own students, courses and attendance.</p>'+
  '<div class="fld"><label>Department name</label><input id="d-name" autocomplete="off" placeholder="e.g. Mathematics"></div>'+
  '<div class="fld"><label>Short code (optional)</label><input id="d-code" autocomplete="off" placeholder="e.g. MTH"></div>'+
  '<button class="btn" data-act="add-dept">'+ic('plus',18)+'Add Department</button></div>'+
@@ -669,23 +708,25 @@ S.departments=async function(){
 async function addDept(){
  const name=cleanName($('#d-name').value),code=cleanName($('#d-code').value).toUpperCase();
  if(!name)return toast('Department name is required',true);
- if(depts.some(d=>d.name.toLowerCase()===name.toLowerCase()))return toast('This department already exists',true);
- const r=await act('Adding department…',()=>api('POST','departments',[{name:name,code:code||null}],{Prefer:'return=representation'}));
+ if(depts.some(d=>d.base.toLowerCase()===name.toLowerCase()))return toast('This department already exists',true);
+ const r=await act('Adding department…',()=>api('POST','departments',LEVELS.map(l=>({name:name,code:code||null,level:l})),{Prefer:'return=representation'}));
  if(!r)return;
- depts.push(r[0]);beep(784);
- if(await switchDept(r[0].id)){toast(name+' added. You can now add its students.');S.departments()}
+ r.forEach(x=>depts.push(mapDept(x)));sortDepts();beep(784);
+ const first=depts.find(d=>d.base===name&&d.level==='ND I')||depts.find(d=>d.base===name);
+ if(await switchDept(first.id)){toast(name+' added with ND I and ND II.');S.departments()}
 }
 function editDept(id){
  const d=depts.find(x=>x.id===id);if(!d)return;
  pendingOk=async()=>{
   const name=cleanName($('#e-name').value),code=cleanName($('#e-code').value).toUpperCase();
   if(!name)return toast('Department name is required',true);
-  if(depts.some(x=>x.id!==id&&x.name.toLowerCase()===name.toLowerCase()))return toast('Another department has this name',true);
-  const r=await act('Saving…',()=>api('PATCH','departments?id=eq.'+id,{name:name,code:code||null},{Prefer:'return=representation'}));
+  if(depts.some(x=>x.base!==d.base&&x.base.toLowerCase()===name.toLowerCase()))return toast('Another department has this name',true);
+  const r=await act('Saving…',()=>api('PATCH','departments?name=eq.'+encodeURIComponent(d.base),{name:name,code:code||null},{Prefer:'return=representation'}));
   if(!r||!r.length)return;
-  Object.assign(d,r[0]);if(dept&&dept.id===id)dept=d;closeModal();toast('Department updated');S.departments();
+  r.forEach(row=>{const l=depts.find(x=>x.id===row.id);if(l)Object.assign(l,mapDept(row))});
+  sortDepts();closeModal();toast('Department updated (ND I and ND II)');S.departments();
  };
- modal('<h3>Edit Department</h3><p>Change the name or code.</p><input id="e-name" value="'+esc(d.name)+'" autocomplete="off"><input id="e-code" value="'+esc(d.code||'')+'" placeholder="Short code" autocomplete="off">'+
+ modal('<h3>Edit Department</h3><p>Change the name or code. It applies to both ND I and ND II.</p><input id="e-name" value="'+esc(d.base)+'" autocomplete="off"><input id="e-code" value="'+esc(d.code||'')+'" placeholder="Short code" autocomplete="off">'+
   '<div class="btns"><button class="btn gray" data-act="m-cancel">Cancel</button><button class="btn" data-act="m-ok">Save</button></div>');
 }
 function delDept(id){
@@ -1033,8 +1074,8 @@ S.absent=function(){
   const m=sessionMap(view.abs);
   rows=sortedStudents().filter(x=>m[x.id]==='absent').map(x=>stuRow(x,'<span class="chip ab">Absent</span>'));
  }
- shell(subHead('Absent Students'),'<p class="muted">Department: <b>'+esc(dept.name)+'</b></p>'+courseBar()+'<div class="fld"><select id="abs">'+opts+'</select></div>'+(rows.length?'<p class="muted">'+rows.length+' student(s)</p>'+rows.join(''):'<div class="empty">No absences recorded for this selection.</div>'),'attendance');
- $('#abs').addEventListener('change',function(){view.abs=this.value;S.absent()});
+ shell(subHead('Absent Students'),'<p class="muted">Department: <b>'+esc(dept.name)+'</b></p>'+courseBar()+'<div class="fld"><select id="abs">'+opts+'</select></div>'+(rows.length?'<p class="muted">'+rows.length+' student(s)</p>'+rsearch()+rows.join(''):'<div class="empty">No absences recorded for this selection.</div>'),'attendance');
+ $('#abs').addEventListener('change',function(){view.abs=this.value;S.absent()});bindRq('.main .row');
 };
 
 /* ===== Reports & exports ===== */
@@ -1110,14 +1151,15 @@ S.reports=function(){
    '<div class="metrics"><div class="mt p"><span>● Present</span><b>'+st.present+'</b><span>'+(st.recorded?round1(st.present/st.recorded*100):0)+'%</span></div><div class="mt a"><span>● Absent</span><b>'+st.absent+'</b><span>'+(st.recorded?round1(st.absent/st.recorded*100):0)+'%</span></div></div>'+
    '<div class="card donutw"><div class="donut" style="background:'+deg+'"><div class="dn"><b>'+(st.recorded?st.rate+'%':'—')+'</b><small>ATTENDANCE</small></div></div><div class="legend"><span><i style="background:var(--ok)"></i>Present ('+st.present+')</span><span><i style="background:var(--bad)"></i>Absent ('+st.absent+')</span></div>'+(st.unrecorded?'<p class="muted" style="margin:10px 0 0">'+st.unrecorded+' student(s) not yet recorded</p>':'')+'</div>'+
    '<div class="sp"></div>'+exportBtns()+
-   '<div class="sec" style="margin-top:18px"><h3>Students</h3></div><div class="card">'+(stu.length?stu.map(x=>{const q=m[x.id];return '<div class="mini"><span class="sn">'+x.serial+'</span><span class="rw"><b>'+esc(x.name)+'</b><small>Adm No: '+esc(x.admNo)+'</small></span><span class="chip '+(q==='present'?'pr':q==='absent'?'ab':'un')+'">'+statusText(q)+'</span></div>'}).join(''):'<div class="muted">No students.</div>')+'</div>';
+   '<div class="sec" style="margin-top:18px"><h3>Students</h3></div>'+rsearch()+'<div class="card">'+(stu.length?stu.map(x=>{const q=m[x.id];return '<div class="mini"><span class="sn">'+x.serial+'</span><span class="rw"><b>'+esc(x.name)+'</b><small>Adm No: '+esc(x.admNo)+'</small></span><span class="chip '+(q==='present'?'pr':q==='absent'?'ab':'un')+'">'+statusText(q)+'</span></div>'}).join(''):'<div class="muted">No students.</div>')+'</div>';
   }
  }else if(r.tab==='student'){
   if(!stu.length)body='<div class="empty">No students yet.</div>';
   else{
    const x=getStudent(r.stid),t=studentStats(x.id,ss);curRep=repStudent(x);
    const deg2=t.total?'conic-gradient(var(--ok) 0 '+t.rate+'%,var(--bad) '+t.rate+'% 100%)':'#e2e8f0';
-   body='<div class="fld"><label>Select Student</label><select id="rsel">'+stu.map(y=>'<option value="'+y.id+'"'+(y.id===r.stid?' selected':'')+'>'+y.serial+'. '+esc(y.name)+' ('+esc(y.admNo)+')</option>').join('')+'</select></div>'+
+   const rqv=view.rq||'',stuF=stu.filter(y=>y.id===r.stid||matches(y,rqv));
+    body='<div class="search">'+ic('search')+'<input id="rsq" value="'+esc(rqv)+'" placeholder="Search student by name, adm no. or serial no." autocomplete="off"></div><div class="fld"><label>Select Student ('+stuF.length+')</label><select id="rsel">'+stuF.map(y=>'<option value="'+y.id+'"'+(y.id===r.stid?' selected':'')+'>'+y.serial+'. '+esc(y.name)+' ('+esc(y.admNo)+')</option>').join('')+'</select></div>'+
    '<div class="metrics"><div class="mt p"><span>● Present</span><b>'+t.present+'</b></div><div class="mt a"><span>● Absent</span><b>'+t.absent+'</b></div></div>'+
    '<div class="card donutw"><div class="donut" style="background:'+deg2+'"><div class="dn"><b>'+(t.total?t.rate+'%':'—')+'</b><small>ATTENDANCE</small></div></div></div><div class="sp"></div>'+exportBtns();
   }
@@ -1135,12 +1177,17 @@ S.reports=function(){
    (d.ss.length?'<p class="muted" style="margin-top:12px">Based on <b>'+d.ss.length+'</b> completed attendance(s). Absent or unmarked counts as not present.</p>':'<div class="empty" style="margin-top:12px">No completed attendance yet. Finish at least one attendance first.</div>')+
    '<div class="metrics"><div class="mt p"><span>● Eligible</span><b>'+d.yes.length+'</b></div><div class="mt a"><span>● Not eligible</span><b>'+d.no.length+'</b></div></div>'+
    '<div class="chips">'+ch('elig','Eligible',d.yes.length)+ch('not','Not eligible',d.no.length)+ch('all','All',d.rows.length)+'</div>'+
-   (list.length?exportBtns()+'<div class="sp"></div><div class="card" style="margin-top:12px">'+list.map(x=>'<div class="mini"><span class="sn">'+x.s.serial+'</span><span class="rw"><b>'+esc(x.s.name)+'</b><small>Adm No: '+esc(x.s.admNo)+' • '+x.p+'/'+x.t+' present</small></span><span class="chip '+(x.ok?'pr':'ab')+'">'+x.rate+'%</span></div>').join('')+'</div>':'<div class="empty">No students in this list.</div>');
+   (list.length?exportBtns()+'<div class="sp"></div>'+rsearch()+'<div class="card" style="margin-top:12px">'+list.map(x=>'<div class="mini"><span class="sn">'+x.s.serial+'</span><span class="rw"><b>'+esc(x.s.name)+'</b><small>Adm No: '+esc(x.s.admNo)+' • '+x.p+'/'+x.t+' present</small></span><span class="chip '+(x.ok?'pr':'ab')+'">'+x.rate+'%</span></div>').join('')+'</div>':'<div class="empty">No students in this list.</div>');
  }else{
   curRep=repSummary();
-  body=(stu.length?'<div class="card">'+stu.map(x=>{const t=studentStats(x.id,ss);return '<div class="mini"><span class="sn">'+x.serial+'</span><span class="rw"><b>'+esc(x.name)+'</b><small>Adm No: '+esc(x.admNo)+' • P: '+t.present+' • A: '+t.absent+'</small></span><span class="chip '+(t.total?(t.rate>=75?'pr':'ab'):'un')+'">'+(t.total?t.rate+'%':'-')+'</span></div>'}).join('')+'</div><div class="sp"></div><div class="sp"></div>'+exportBtns():'<div class="empty">No students yet.</div>');
+  body=(stu.length?rsearch()+'<div class="card">'+stu.map(x=>{const t=studentStats(x.id,ss);return '<div class="mini"><span class="sn">'+x.serial+'</span><span class="rw"><b>'+esc(x.name)+'</b><small>Adm No: '+esc(x.admNo)+' • P: '+t.present+' • A: '+t.absent+'</small></span><span class="chip '+(t.total?(t.rate>=75?'pr':'ab'):'un')+'">'+(t.total?t.rate+'%':'-')+'</span></div>'}).join('')+'</div><div class="sp"></div><div class="sp"></div>'+exportBtns():'<div class="empty">No students yet.</div>');
  }
  shell(mainHead('Reports'),deptBar()+(r.tab==='elig'?'':courseBar())+tabs+body,'reports');
+ bindRq('.main .mini');
+ const rsq=$('#rsq');if(rsq)rsq.addEventListener('input',function(){
+  const v=this.value;clearTimeout(view.rqt);
+  view.rqt=setTimeout(()=>{view.rq=v;const f=stu.filter(y=>matches(y,v));if(f.length&&!f.some(y=>y.id===r.stid))r.stid=f[0].id;S.reports();const n=$('#rsq');if(n){n.focus();n.setSelectionRange(v.length,v.length)}},350);
+ });
  const sel=$('#rsel');if(sel)sel.addEventListener('change',function(){if(r.tab==='session')r.sid=this.value;else r.stid=this.value;S.reports()});
  if(r.tab==='elig'){const e=view.el;
   $('#el-th').addEventListener('change',function(){let v=parseFloat(this.value);if(!(v>=0))v=75;if(v>100)v=100;e.th=v;sset('zacast_th',String(v));S.reports()});
@@ -1219,7 +1266,7 @@ function formatAll(){
   closeModal();
   const r=await act('Deleting…',()=>api('DELETE','students?department_id=eq.'+dept.id,undefined,{Prefer:'return=minimal'}));
   if(r===undefined)return;
-  db.students=[];db.rec={};toast('All students deleted');S.manage();
+  db.students=[];db.rec={};toast('All students deleted');if(route.n==='ai')aiSay('bot','✓ All students of <b>'+esc(dept.name)+'</b> were deleted.');else S.manage();
  }});
 }
 S.export=function(){
@@ -1230,9 +1277,155 @@ S.about=function(){
  shell(subHead('About'),'<div class="brand" style="margin-top:6px"><img src="'+LOGO+'" alt="" style="width:150px;height:150px"><b style="font-size:20px">'+BRAND+'</b><small>'+SUBTITLE.toUpperCase()+'</small><small>'+esc(FULLNAME)+'</small><small style="margin-top:10px">Version '+VERSION+' • online (Supabase)</small><div class="motto" style="color:var(--g);margin-top:14px">'+MOTTO+'</div></div>','settings');
 };
 
+/* ===== AI mode (type a command in English or Hausa) ===== */
+const AIH={msgs:[],pending:null};
+const AI_STOP=' find search show list display look for get me the a an of in to all student students dalibai dalibi dalibin department dept nd i ii 1 2 one two year please nemo nema nuna bincika duba ina na a cikin '.split(' ').filter(Boolean);
+const aiNorm=s=>' '+String(s||'').toLowerCase().replace(/ɗ/g,'d').replace(/ƙ/g,'k').replace(/ɓ/g,'b').replace(/[’'`]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ')+' ';
+const aiSay=(r,h)=>{AIH.msgs.push({r:r,h:h});if(route.n==='ai')aiPaint()};
+function aiPaint(){
+ const c=$('#aic');if(!c)return;
+ c.innerHTML=AIH.msgs.map(m=>'<div class="aib '+m.r+'">'+m.h+'</div>').join('');
+ const w=$('#aiw');if(w&&dept)w.innerHTML='Working in <b>'+esc(dept.name)+'</b>';
+ window.scrollTo(0,document.body.scrollHeight);
+}
+const AI_CHIPS=['Find ND II student','Export all students to PDF','How many students?','Help'];
+const AI_HELP='I understand English and Hausa. Try:<br>• <b>Find ND II student</b> / <b>Find Aminu</b><br>• <b>Export all students to PDF</b> (or Excel)<br>• <b>Mark all students in Computer Science ND I present</b><br>• <b>Add student Aminu Sani, 36201</b><br>• <b>How many students in ND I?</b><br>• <b>Delete all students</b><br>• <b>Open reports</b> / <b>Open ND I</b><br>Hausa: <i>nemo dalibai ND II</i>, <i>fitar da dukkan dalibai PDF</i>, <i>yi alama duka sun halarci</i>, <i>goge duka dalibai</i>, <i>nawa ne dalibai</i>.';
+S.ai=function(){
+ if(!AIH.msgs.length)AIH.msgs.push({r:'bot',h:'<b>Welcome!</b> What can I help you with?<div class="aichips">'+AI_CHIPS.map(x=>'<button data-act="ai-chip" data-t="'+x+'">'+x+'</button>').join('')+'</div>'});
+ shell(mainHead('AI Mode'),'<p class="muted" id="aiw" style="margin:0 0 8px"></p><div id="aic" class="aic"></div>','ai',
+  '<form id="aif" class="aibar" autocomplete="off"><input id="aiq" placeholder="Type what you want (English or Hausa)…" autocomplete="off"><button class="aisend" aria-label="Send">'+ic('chev',20)+'</button></form>');
+ aiPaint();
+ $('#aif').addEventListener('submit',e=>{e.preventDefault();const i=$('#aiq'),v=i.value.trim();if(!v)return;i.value='';aiRun(v)});
+};
+function aiLevel(t){
+ if(/ nd ?(ii|2|two|biyu) | year ?(2|two|ii) | shekara ta (2|biyu) /.test(t))return 'ND II';
+ if(/ nd ?(i|1|one|daya) | year ?(1|one|i) | shekara ta (1|daya) /.test(t))return 'ND I';
+ return null;
+}
+function aiBase(t){
+ let best=null;
+ depts.forEach(d=>{
+  const b=aiNorm(d.base).trim(),c=aiNorm(d.code||'').trim();
+  if((b&&t.indexOf(' '+b+' ')>-1)||(c&&t.indexOf(' '+c+' ')>-1)){if(!best||b.length>best.length)best=d.base}
+ });
+ return best;
+}
+function aiTarget(t){
+ const lv=aiLevel(t),b=aiBase(t);
+ const d=depts.find(x=>x.base===(b||(dept&&dept.base))&&x.level===(lv||(dept&&dept.level)));
+ return {d:d,explicit:!!(lv||b)};
+}
+async function aiUse(d){if(!d)return false;if(dept&&dept.id===d.id)return true;return await switchDept(d.id)}
+function aiCourse(t){
+ const tn=t.replace(/\s+/g,'');let best=null;
+ sortedCourses().forEach(c=>{const k=aiNorm(c.code).replace(/\s+/g,'');if(k&&tn.indexOf(k)>-1&&(!best||k.length>best.k.length))best={c:c,k:k}});
+ return best?best.c:null;
+}
+async function aiRun(raw){
+ aiSay('me',esc(raw));
+ try{await aiHandle(raw,aiNorm(raw))}catch(e){aiSay('bot','⚠ '+esc(friendly(e)))}
+}
+async function aiHandle(raw,t){
+ const has=r=>r.test(t);
+ if(AIH.pending){
+  const p=AIH.pending;
+  if(has(/ (cancel|stop|no|babu|soke) /)){AIH.pending=null;return aiSay('bot','Okay, cancelled.')}
+  const c=aiCourse(t);
+  if(c){AIH.pending=null;return aiMark(p.status,c)}
+  return aiSay('bot','I did not find that course. Type one of: <b>'+sortedCourses().map(x=>esc(x.code)).join(', ')+'</b> (or “cancel”).');
+ }
+ const all=has(/ (all|every|everyone|duka|dukka|dukkan|kowa) /),stu=has(/ (student|students|dalibai|dalibi|dalibin|almajirai) /);
+ const present=has(/ (present|halarci|sun halarci|ya halarci|sun zo|ya zo|yazo) /),absent=has(/ (absent|bai zo|basu zo|ba su zo|rashin zuwa|ba sa nan) /);
+ if(has(/ (help|taimako|taimaka|me zaka iya|abin da zaka iya) /))return aiSay('bot',AI_HELP);
+ if(has(/ (hello|hi|hey|sannu|barka|ina kwana|ina wuni) /)&&t.trim().split(' ').length<4)return aiSay('bot','Hello! What can I help you with?');
+ // delete all students
+ if(has(/ (delete|remove|clear|erase|goge|share|cire) /)&&all&&stu){
+  const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
+  if(!await aiUse(g.d))return;
+  if(!db.students.length)return aiSay('bot','There are no students in <b>'+esc(dept.name)+'</b>.');
+  aiSay('bot','Please confirm: delete all <b>'+db.students.length+'</b> students of <b>'+esc(dept.name)+'</b>. Type DELETE in the box that opened.');
+  return formatAll();
+ }
+ // mark all present / absent
+ if((present||absent)&&all){
+  const status=absent&&!present?'absent':'present',g=aiTarget(t);
+  if(!g.d)return aiSay('bot','I could not find that department or level.');
+  if(!await aiUse(g.d))return;
+  if(!db.students.length)return aiSay('bot','There are no students in <b>'+esc(dept.name)+'</b>.');
+  if(!coursesOK||!db.courses.length)return aiSay('bot','<b>'+esc(dept.name)+'</b> has no course yet. Add a course first (Settings → Courses).');
+  const c=aiCourse(t);
+  if(!c){AIH.pending={status:status};return aiSay('bot','Which course? Type one of: <b>'+sortedCourses().map(x=>esc(x.code)).join(', ')+'</b>')}
+  return aiMark(status,c);
+ }
+ // add student
+ const am=raw.match(/(?:add|register|kara|ƙara|saka)\s+(?:a\s+|new\s+|sabon\s+)?(?:student|dalibi|ɗalibi)\s*:?\s*(.+?)\s*[,;]\s*(\S+?)(?:\s+(?:to|in|a|cikin|zuwa)\s+.*)?$/i);
+ if(am){
+  const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
+  if(!await aiUse(g.d))return;
+  const name=cleanName(am[1]).toUpperCase(),adm=am[2].trim();
+  if(admTaken(adm))return aiSay('bot','Admission number <b>'+esc(adm)+'</b> is already registered in '+esc(dept.name)+'.');
+  const r=await act('Saving…',()=>api('POST','students',[{department_id:dept.id,serial:nextSerial(),name:name,adm_no:adm}],{Prefer:'return=representation'}));
+  if(!r)return aiSay('bot','Could not add the student.');
+  db.students.push(mapStu(r[0]));beep(784);
+  return aiSay('bot','✓ Added <b>'+esc(name)+'</b> ('+esc(adm)+') to <b>'+esc(dept.name)+'</b>.');
+ }
+ // export
+ if(has(/ (export|download|print|fitar|sauke|fito|buga) /)){
+  const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
+  if(!await aiUse(g.d))return;
+  const kind=has(/ (excel|csv|sheet) /)?'csv':'pdf',sum=has(/ (summary|report|rahoto|sakamako) /);
+  if(!db.students.length)return aiSay('bot','There are no students in <b>'+esc(dept.name)+'</b> to export.');
+  if(sum)view.course='all';
+  aiSay('bot','Preparing the '+(sum?'attendance summary':'student list')+' of <b>'+esc(dept.name)+'</b> as '+(kind==='pdf'?'PDF (choose “Save as PDF” in the print window)':'Excel (CSV)')+'…');
+  return doExport(kind,sum?repSummary():repStudents());
+ }
+ // count
+ if(has(/ (how many|count|number of|nawa|yawan|total) /)){
+  const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
+  if(!await aiUse(g.d))return;
+  return aiSay('bot','<b>'+esc(dept.name)+'</b> has <b>'+db.students.length+'</b> student(s).');
+ }
+ // open page / switch department
+ const pages={dashboard:'dashboard',students:'students',attendance:'attendance',reports:'reports',report:'reports',settings:'settings'};
+ if(has(/ (open|go to|goto|take me|bude|je|koma|switch) /)){
+  for(const k in pages){if(t.indexOf(' '+k+' ')>-1){setTimeout(()=>tab(pages[k]),250);return aiSay('bot','Opening '+k+'…')}}
+  if(t.indexOf(' courses ')>-1){setTimeout(()=>nav('courses'),250);return aiSay('bot','Opening courses…')}
+  const g=aiTarget(t);
+  if(g.explicit&&g.d){if(!await aiUse(g.d))return;return aiSay('bot','✓ Now working in <b>'+esc(dept.name)+'</b> ('+db.students.length+' students).')}
+ }
+ // find / list students
+ const q=t.trim().split(' ').filter(w=>w&&AI_STOP.indexOf(w)<0&&!(aiBase(t)&&aiNorm(aiBase(t)).indexOf(' '+w+' ')>-1)).join(' ');
+ const finder=has(/ (find|search|show|list|display|look|get|nemo|nema|nuna|bincika|duba) /);
+ if(finder||stu||(q&&q.split(' ').length<=4)){
+  const g=aiTarget(t);if(!g.d)return aiSay('bot','I could not find that department or level.');
+  if(!await aiUse(g.d))return;
+  const l=sortedStudents().filter(s=>matches(s,q));
+  if(!l.length)return aiSay('bot','No student found'+(q?' for “'+esc(q)+'”':'')+' in <b>'+esc(dept.name)+'</b>.');
+  return aiSay('bot','Found <b>'+l.length+'</b> student(s) in <b>'+esc(dept.name)+'</b>'+(q?' for “'+esc(q)+'”':'')+':'+l.slice(0,15).map(s=>stuRow(s)).join('')+(l.length>15?'<div class="muted" style="margin:8px 0 0">…and '+(l.length-15)+' more. Type a name to narrow down.</div>':''));
+ }
+ aiSay('bot','Sorry, I did not understand that. Type <b>Help</b> to see what I can do.');
+}
+async function aiMark(status,c){
+ const n=db.students.length;
+ confirmBox({title:'Mark all '+status+'?',text:'All '+n+' students of '+dept.name+' will be marked '+status+' for '+courseLabel(c)+' today. Continue?',ok:'Yes, mark all',onOk:async()=>{
+  closeModal();
+  const s=await act('Marking…',async()=>{
+   let x=db.sessions.find(y=>y.courseId===c.id&&y.date===todayStr()&&y.status!=='Completed');
+   if(!x){const r=await api('POST','attendance_sessions',[{department_id:dept.id,course:courseLabel(c),course_id:c.id,semester:SEMS[0],date:todayStr(),time:nowTime(),day:dayOf(todayStr())}],{Prefer:'return=representation'});x=mapSes(r[0]);db.sessions.push(x)}
+   const m=db.rec[x.id]||(db.rec[x.id]={});
+   await upsertRecs(db.students.map(st=>{m[st.id]=status;return {department_id:dept.id,session_id:x.id,student_id:st.id,status:status}}));
+   return x;
+  });
+  if(!s)return aiSay('bot','Nothing was changed.');
+  beep(784);aiSay('bot','✓ All <b>'+n+'</b> students of <b>'+esc(dept.name)+'</b> marked <b>'+status+'</b> for '+esc(courseLabel(c))+'.<br><button class="lnk" data-act="session" data-id="'+s.id+'">Open this attendance</button>');
+ }});
+}
+
 /* ===== Actions ===== */
 const ACT={
  back:()=>back(),
+ forgot:()=>nav('forgot'),
+ 'ai-chip':t=>aiRun(t.dataset.t),
  tab:t=>tab(t.dataset.n),
  nav:t=>nav(t.dataset.n,t.dataset.id?{id:t.dataset.id}:{}),
  student:t=>nav('student-profile',{id:t.dataset.id}),
@@ -1280,7 +1473,7 @@ const ACT={
  mark:t=>markStudent(t.dataset.id,t.dataset.v),
  'all-present':()=>allPresent(),
  finish:()=>finishSession(),
- rtab:t=>{view.rep.tab=t.dataset.v;S.reports()},
+ rtab:t=>{view.rep.tab=t.dataset.v;view.rq='';S.reports()},
  'elist':t=>{view.el.list=t.dataset.v;S.reports()},
  'export':t=>{if(curRep)doExport(t.dataset.k,curRep)},
  'toggle-sound':()=>{sset('zacast_sound',soundOn()?'0':'1');S.settings();beep(660)},
